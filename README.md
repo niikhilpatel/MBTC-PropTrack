@@ -18,3 +18,8 @@ Use the `users`, `sessions`, `accounts`, and `trades` tables already created in 
 - On first connection, existing local accounts/trades are uploaded if the cloud account has no data.
 - Later changes sync to Supabase.
 - The original dashboard layout is retained.
+
+### Account Status
+- SAFE: account is active and has not reached target or maximum drawdown.
+- PASSED: account profit reaches or exceeds the configured profit target.
+- FAILED: maximum drawdown used reaches or exceeds the configured maximum drawdown.
