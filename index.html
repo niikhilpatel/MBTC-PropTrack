@@ -25,7 +25,7 @@
 <main class="main">
 <header class="topbar">
   <div><p class="eyebrow">PROP TRADING CONTROL CENTER</p><h2 id="pageTitle">Dashboard</h2></div>
-  <div class="top-actions"><select id="accountSwitcher"></select><button class="primary-btn" id="quickTradeBtn">＋ Record Trade</button></div>
+  <div class="top-actions"><select id="accountSwitcher"></select><button class="primary-btn" id="quickTradeBtn">＋ Record Trade</button><div class="user-chip hidden" id="userChip"><span id="userChipEmail"></span><button id="logoutTop" type="button">Logout</button></div></div>
 </header>
 <section id="dashboardView" class="view active-view"></section>
 <section id="accountsView" class="view"></section>
@@ -58,6 +58,23 @@
 
 <div class="modal hidden" id="deleteModal"><div class="modal-card small"><h3>Delete account?</h3><p class="muted">This removes the account and its trades from this browser.</p><div class="modal-actions"><button class="ghost-btn" data-close-modal="deleteModal">Cancel</button><button class="danger-btn" id="confirmDelete">Delete</button></div></div></div>
 <div class="toast" id="toast"></div>
+<div class="auth-screen hidden" id="authScreen">
+  <div class="auth-card">
+    <div class="brand auth-brand"><div class="brand-mark">P</div><div><h1>PropTrack</h1><span>Cloud Trading Dashboard</span></div></div>
+    <p class="eyebrow" id="authEyebrow">SECURE CLOUD LOGIN</p>
+    <h2 id="authTitle">Welcome back</h2>
+    <p class="muted" id="authSubtitle">Sign in to access your accounts and trades from anywhere.</p>
+    <form id="authForm">
+      <label>Email<input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+      <label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="••••••••"></label>
+      <button class="primary-btn auth-submit" id="authSubmit" type="submit">Login</button>
+    </form>
+    <button class="auth-switch" id="authSwitch" type="button">Create a new account</button>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+<div class="user-menu hidden" id="userMenu"><span id="userEmail"></span><button class="ghost-btn" id="logoutBtn">Logout</button></div>
+
 <script src="app.js"></script>
 </body>
 </html>
