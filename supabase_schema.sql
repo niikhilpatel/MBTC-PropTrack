@@ -1,0 +1,6 @@
+create extension if not exists pgcrypto;
+create table if not exists users(id uuid primary key default gen_random_uuid(),email text unique not null,password_hash text not null,created_at timestamptz default now());
+create table if not exists sessions(token text primary key,user_id uuid references users(id) on delete cascade,expires_at timestamptz not null,created_at timestamptz default now());
+create table if not exists accounts(id uuid primary key default gen_random_uuid(),user_id uuid references users(id) on delete cascade,firm text not null,name text not null,account_size numeric not null,target_type text not null,target_input numeric not null,max_dd_type text not null,max_dd_input numeric not null,daily_dd_type text not null,daily_dd_input numeric not null,created_at timestamptz default now());
+create table if not exists trades(id uuid primary key default gen_random_uuid(),account_id uuid references accounts(id) on delete cascade,pair text not null,direction text not null,pnl numeric not null,entry numeric,exit numeric,lot numeric,notes text,balance_after numeric not null,created_at timestamptz default now());
+create index if not exists accounts_user_idx on accounts(user_id); create index if not exists trades_account_idx on trades(account_id);
