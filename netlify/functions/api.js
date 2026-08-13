@@ -468,111 +468,89 @@ exports.handler = async (event) => {
     ===================================================== */
 
     if (path === "data") {
-      const accounts = await sb(
-        `accounts?user_id=eq.${encodeURIComponent(
-          userId
-        )}&select=*`
-      );
+  const accounts = await sb(
+    `accounts?user_id=eq.${encodeURIComponent(userId)}&select=*`
+  );
 
-      const accountIds =
-        accounts.map(
-          (account) => account.id
-        );
+  const ids = accounts.map((account) => account.id);
 
-      let trades = [];
+  let trades = [];
 
-      if (accountIds.length > 0) {
-        trades = await sb(
-          `trades?account_id=in.(${accountIds.join(
-            ","
-          )})&select=*`
-        );
-      }
+  if (ids.length) {
+    trades = await sb(
+      `trades?account_id=in.(${ids.join(",")})&select=*`
+    );
+  }
 
-      /*
-        IMPORTANT:
-        Convert Supabase database field names
-        into the names used by the frontend.
-      */
+  const mappedAccounts = accounts.map((account) => {
+    const accountTrades = trades
+      .filter((trade) => trade.account_id === account.id)
+      .map((trade) => ({
+        id: trade.id,
+        date: trade.created_at,
+        pair: trade.pair || "",
+        side: trade.direction || "",
+        pnl: Number(trade.pnl || 0),
+        entry: trade.entry ?? null,
+        exit: trade.exit ?? null,
+        size: trade.lot ?? null,
+        risk: null,
+        note: trade.notes || "",
+        balanceAfter: Number(trade.balance_after || 0)
+      }));
 
-      const mappedAccounts =
-        accounts.map((account) => ({
-          id: account.id,
+    const startingBalance = Number(account.account_size || 0);
 
-          firm: account.firm || "",
-          name: account.name || "",
+    const targetInput = Number(account.target_input || 0);
+    const maxDdInput = Number(account.max_dd_input || 0);
+    const dailyDdInput = Number(account.daily_dd_input || 0);
 
-          accountSize:
-            Number(account.account_size) || 0,
+    return {
+      id: account.id,
 
-          targetType:
-            account.target_type || "usd",
+      firm: account.firm || "",
+      name: account.name || "",
 
-          targetInput:
-            Number(account.target_input) || 0,
+      /* Frontend-compatible fields */
+      startingBalance: startingBalance,
 
-          maxDdType:
-            account.max_dd_type || "usd",
+      target: targetInput,
 
-          maxDdInput:
-            Number(account.max_dd_input) || 0,
+      maxDd: maxDdInput,
 
-          dailyDdType:
-            account.daily_dd_type || "usd",
+      dailyDd: dailyDdInput,
 
-          dailyDdInput:
-            Number(account.daily_dd_input) || 0,
+      ddMode: account.max_dd_type || "usd",
 
-          createdAt:
-            account.created_at,
+      dailyDdMode: account.daily_dd_type || "usd",
 
-          trades: trades
-            .filter(
-              (trade) =>
-                trade.account_id ===
-                account.id
-            )
-            .map((trade) => ({
-              id: trade.id,
+      targetType: account.target_type || "usd",
 
-              date:
-                trade.created_at,
+      maxDdType: account.max_dd_type || "usd",
 
-              pair:
-                trade.pair || "",
+      dailyDdType: account.daily_dd_type || "usd",
 
-              side:
-                trade.direction || "",
+      /* Keep original database values too */
+      accountSize: startingBalance,
 
-              pnl:
-                Number(trade.pnl) || 0,
+      targetInput: targetInput,
 
-              entry:
-                trade.entry,
+      maxDdInput: maxDdInput,
 
-              exit:
-                trade.exit,
+      dailyDdInput: dailyDdInput,
 
-              size:
-                trade.lot,
+      createdAt:
+        account.created_at ||
+        new Date().toISOString(),
 
-              risk: null,
+      trades: accountTrades
+    };
+  });
 
-              note:
-                trade.notes || "",
-
-              balanceAfter:
-                Number(
-                  trade.balance_after
-                ) || 0
-            }))
-        }));
-
-      return json(200, {
-        ok: true,
-        accounts: mappedAccounts
-      });
-    }
+  return json(200, {
+    accounts: mappedAccounts
+  });
+}
 
     /* =====================================================
        SYNC DATA
