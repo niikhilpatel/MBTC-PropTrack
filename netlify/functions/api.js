@@ -557,228 +557,245 @@ exports.handler = async (event) => {
     ===================================================== */
 
     if (path === "sync") {
-      if (event.httpMethod !== "POST") {
-        return json(405, {
-          error: "Method Not Allowed"
-        });
-      }
+  if (event.httpMethod !== "POST") {
+    return json(405, {
+      error: "Method Not Allowed"
+    });
+  }
 
-      const body = JSON.parse(
-        event.body || "{}"
+  const body = JSON.parse(event.body || "{}");
+
+  const accounts = Array.isArray(body.accounts)
+    ? body.accounts
+    : [];
+
+  /*
+   * Remove duplicate account IDs coming from app.js.
+   * If the same account appears more than once,
+   * keep the last version.
+   */
+  const uniqueAccounts = Array.from(
+    new Map(
+      accounts
+        .filter(account => account && account.id)
+        .map(account => [String(account.id), account])
+    ).values()
+  );
+
+  /*
+   * Get all existing accounts belonging to this user.
+   */
+  const oldAccounts = await sb(
+    `accounts?user_id=eq.${encodeURIComponent(userId)}&select=id`
+  );
+
+  const oldIds = new Set(
+    oldAccounts.map(account => String(account.id))
+  );
+
+  const incomingIds = new Set(
+    uniqueAccounts.map(account => String(account.id))
+  );
+
+  /*
+   * -----------------------------------------
+   * SYNC ACCOUNTS
+   * -----------------------------------------
+   */
+
+  for (const account of uniqueAccounts) {
+
+    const row = {
+      id: account.id,
+      user_id: userId,
+
+      firm: account.firm || "",
+      name: account.name || "",
+
+      account_size: Number(
+        account.accountSize || 0
+      ),
+
+      target_type:
+        account.targetType || "usd",
+
+      target_input:
+        account.targetInput ??
+        account.target ??
+        0,
+
+      max_dd_type:
+        account.maxDdType || "usd",
+
+      max_dd_input:
+        account.maxDdInput ??
+        account.maxDd ??
+        0,
+
+      daily_dd_type:
+        account.dailyDdType || "usd",
+
+      daily_dd_input:
+        account.dailyDdInput ??
+        account.dailyDd ??
+        0,
+
+      created_at:
+        account.createdAt ||
+        new Date().toISOString()
+    };
+
+    /*
+     * Update existing account belonging to this user.
+     */
+    if (oldIds.has(String(account.id))) {
+
+      await sb(
+        `accounts?id=eq.${encodeURIComponent(
+          account.id
+        )}&user_id=eq.${encodeURIComponent(
+          userId
+        )}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(row)
+        }
       );
 
-      const accounts =
-        Array.isArray(body.accounts)
-          ? body.accounts
-          : [];
+    } else {
 
-      const oldAccounts =
-        await sb(
-          `accounts?user_id=eq.${encodeURIComponent(
-            userId
-          )}&select=id`
-        );
-
-      const oldIds =
-        new Set(
-          oldAccounts.map(
-            (account) => account.id
-          )
-        );
-
-      const incomingIds =
-        new Set(
-          accounts.map(
-            (account) => account.id
-          )
-        );
-
-      /* ===================================================
-         ACCOUNTS
-      =================================================== */
-
-      for (const account of accounts) {
-        if (!account.id) {
-          continue;
-        }
-
-        const row = {
-          id: account.id,
-
-          user_id: userId,
-
-          firm:
-            account.firm || "",
-
-          name:
-            account.name || "",
-
-          account_size:
-            Number(
-              account.accountSize || 0
-            ),
-
-          target_type:
-            account.targetType ||
-            "usd",
-
-          target_input:
-            account.targetInput ??
-            account.target ??
-            0,
-
-          max_dd_type:
-            account.maxDdType ||
-            "usd",
-
-          max_dd_input:
-            account.maxDdInput ??
-            account.maxDd ??
-            0,
-
-          daily_dd_type:
-            account.dailyDdType ||
-            "usd",
-
-          daily_dd_input:
-            account.dailyDdInput ??
-            account.dailyDd ??
-            0,
-
-          created_at:
-            account.createdAt ||
-            new Date().toISOString()
-        };
-
-        if (oldIds.has(account.id)) {
-          await sb(
-            `accounts?id=eq.${encodeURIComponent(
-              account.id
-            )}&user_id=eq.${encodeURIComponent(
-              userId
-            )}`,
-            {
-              method: "PATCH",
-              body: JSON.stringify(row)
-            }
-          );
-        } else {
-          await sb("accounts", {
-            method: "POST",
-            body: JSON.stringify(row)
-          });
-        }
-
-        /* ===============================================
-           TRADES
-        =============================================== */
-
-        const oldTrades =
-          await sb(
-            `trades?account_id=eq.${encodeURIComponent(
-              account.id
-            )}&select=id`
-          );
-
-        const oldTradeIds =
-          new Set(
-            oldTrades.map(
-              (trade) => trade.id
-            )
-          );
-
-        for (
-          const trade of account.trades || []
-        ) {
-          if (!trade.id) {
-            continue;
-          }
-
-          const tradeRow = {
-            id: trade.id,
-
-            account_id:
-              account.id,
-
-            pair:
-              trade.pair || "",
-
-            direction:
-              trade.side || "",
-
-            pnl:
-              Number(trade.pnl || 0),
-
-            entry:
-              trade.entry ?? null,
-
-            exit:
-              trade.exit ?? null,
-
-            lot:
-              trade.size ?? null,
-
-            notes:
-              trade.note || null,
-
-            balance_after:
-              Number(
-                trade.balanceAfter || 0
-              ),
-
-            created_at:
-              trade.date ||
-              new Date().toISOString()
-          };
-
-          if (oldTradeIds.has(trade.id)) {
-            await sb(
-              `trades?id=eq.${encodeURIComponent(
-                trade.id
-              )}&account_id=eq.${encodeURIComponent(
-                account.id
-              )}`,
-              {
-                method: "PATCH",
-                body: JSON.stringify(
-                  tradeRow
-                )
-              }
-            );
-          } else {
-            await sb("trades", {
-              method: "POST",
-              body: JSON.stringify(
-                tradeRow
-              )
-            });
-          }
-        }
-      }
-
-      /* =================================================
-         DELETE REMOVED ACCOUNTS
-      ================================================= */
-
-      for (const id of oldIds) {
-        if (!incomingIds.has(id)) {
-          await sb(
-            `accounts?id=eq.${encodeURIComponent(
-              id
-            )}&user_id=eq.${encodeURIComponent(
-              userId
-            )}`,
-            {
-              method: "DELETE"
-            }
-          );
-        }
-      }
-
-      return json(200, {
-        ok: true
+      /*
+       * New account.
+       */
+      await sb("accounts", {
+        method: "POST",
+        body: JSON.stringify(row)
       });
     }
+
+    /*
+     * -----------------------------------------
+     * SYNC TRADES
+     * -----------------------------------------
+     */
+
+    const oldTrades = await sb(
+      `trades?account_id=eq.${encodeURIComponent(
+        account.id
+      )}&select=id`
+    );
+
+    const oldTradeIds = new Set(
+      oldTrades.map(trade => String(trade.id))
+    );
+
+    /*
+     * Remove duplicate trades coming from app.js.
+     */
+    const uniqueTrades = Array.from(
+      new Map(
+        (Array.isArray(account.trades)
+          ? account.trades
+          : []
+        )
+          .filter(trade => trade && trade.id)
+          .map(trade => [
+            String(trade.id),
+            trade
+          ])
+      ).values()
+    );
+
+    for (const trade of uniqueTrades) {
+
+      const tradeRow = {
+        id: trade.id,
+
+        account_id: account.id,
+
+        pair: trade.pair || "",
+
+        direction:
+          trade.side || "",
+
+        pnl: Number(
+          trade.pnl || 0
+        ),
+
+        entry:
+          trade.entry ?? null,
+
+        exit:
+          trade.exit ?? null,
+
+        lot:
+          trade.size ?? null,
+
+        notes:
+          trade.note || null,
+
+        balance_after:
+          Number(
+            trade.balanceAfter || 0
+          ),
+
+        created_at:
+          trade.date ||
+          new Date().toISOString()
+      };
+
+      if (oldTradeIds.has(String(trade.id))) {
+
+        await sb(
+          `trades?id=eq.${encodeURIComponent(
+            trade.id
+          )}&account_id=eq.${encodeURIComponent(
+            account.id
+          )}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(tradeRow)
+          }
+        );
+
+      } else {
+
+        await sb("trades", {
+          method: "POST",
+          body: JSON.stringify(tradeRow)
+        });
+      }
+    }
+  }
+
+  /*
+   * -----------------------------------------
+   * DELETE ACCOUNTS REMOVED FROM APP
+   * -----------------------------------------
+   */
+
+  for (const id of oldIds) {
+
+    if (!incomingIds.has(String(id))) {
+
+      await sb(
+        `accounts?id=eq.${encodeURIComponent(
+          id
+        )}&user_id=eq.${encodeURIComponent(
+          userId
+        )}`,
+        {
+          method: "DELETE"
+        }
+      );
+    }
+  }
+
+  return json(200, {
+    ok: true,
+    accountsSynced: uniqueAccounts.length
+  });
+}
 
     /* =====================================================
        UNKNOWN ROUTE
