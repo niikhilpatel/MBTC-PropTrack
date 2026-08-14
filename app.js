@@ -145,15 +145,48 @@ function maxRem(x) {
   return Math.max(0, Number(x.maxDd || 0) - maxUsed(x));
 }
 
-function dayKey(d = new Date()) {
-  const x = new Date(d);
-  return x.toISOString().slice(0, 10);
+function dayKey(d = new Date(), resetTime = "00:00") {
+  const date = new Date(d);
+
+  const [hours, minutes] = String(resetTime || "00:00")
+    .split(":")
+    .map(Number);
+
+  const resetMinutes = (hours * 60) + minutes;
+
+  const currentMinutes =
+    date.getHours() * 60 +
+    date.getMinutes();
+
+  if (currentMinutes < resetMinutes) {
+    date.setDate(date.getDate() - 1);
+  }
+
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
 }
 
 function today(x) {
+  const currentDay = dayKey(
+    new Date(),
+    x.resetTime || "00:00"
+  );
+
   return x.trades
-    .filter((t) => dayKey(t.date) === dayKey())
-    .reduce((s, t) => s + Number(t.pnl || 0), 0);
+    .filter(
+      (t) =>
+        dayKey(
+          t.date,
+          x.resetTime || "00:00"
+        ) === currentDay
+    )
+    .reduce(
+      (s, t) => s + Number(t.pnl || 0),
+      0
+    );
 }
 
 function dailyRem(x) {
@@ -556,9 +589,9 @@ async function initCloud() {
 
     if (remote && Array.isArray(remote.accounts) && remote.accounts.length) {
       state = {
-        selectedId: state.selectedId,
-        accounts: remote.accounts,
-      };
+  selectedId: state.selectedId,
+  accounts: remote.accounts.map(normalizeCloudAccount),
+};
 
       if (!state.accounts.some((x) => x.id === state.selectedId)) {
         state.selectedId = state.accounts[0].id;

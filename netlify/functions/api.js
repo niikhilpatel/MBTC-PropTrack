@@ -640,6 +640,9 @@ exports.handler = async (event) => {
         account.dailyDd ??
         0,
 
+      reset_time:
+  account.resetTime || account.reset_time || "00:00",
+
       created_at:
         account.createdAt ||
         new Date().toISOString()
