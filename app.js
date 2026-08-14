@@ -152,11 +152,9 @@ function dayKey(d = new Date(), resetTime = "00:00") {
     .split(":")
     .map(Number);
 
-  const resetMinutes = (hours * 60) + minutes;
+  const resetMinutes = hours * 60 + minutes;
 
-  const currentMinutes =
-    date.getHours() * 60 +
-    date.getMinutes();
+  const currentMinutes = date.getHours() * 60 + date.getMinutes();
 
   if (currentMinutes < resetMinutes) {
     date.setDate(date.getDate() - 1);
@@ -165,28 +163,16 @@ function dayKey(d = new Date(), resetTime = "00:00") {
   return [
     date.getFullYear(),
     String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0")
+    String(date.getDate()).padStart(2, "0"),
   ].join("-");
 }
 
 function today(x) {
-  const currentDay = dayKey(
-    new Date(),
-    x.resetTime || "00:00"
-  );
+  const currentDay = dayKey(new Date(), x.resetTime || "00:00");
 
   return x.trades
-    .filter(
-      (t) =>
-        dayKey(
-          t.date,
-          x.resetTime || "00:00"
-        ) === currentDay
-    )
-    .reduce(
-      (s, t) => s + Number(t.pnl || 0),
-      0
-    );
+    .filter((t) => dayKey(t.date, x.resetTime || "00:00") === currentDay)
+    .reduce((s, t) => s + Number(t.pnl || 0), 0);
 }
 
 function dailyRem(x) {
@@ -314,19 +300,14 @@ function showAuth(mode = "login", message = "") {
   $("#authScreen").classList.remove("hidden");
 
   $("#authTitle").textContent =
-    mode === "login"
-      ? "Welcome back"
-      : "Create your account";
+    mode === "login" ? "Welcome back" : "Create your account";
 
   $("#authSubtitle").textContent =
     mode === "login"
       ? "Sign in to access your accounts and trades from anywhere."
       : "Create one account and keep your PropTrack data in the cloud.";
 
-  $("#authSubmit").textContent =
-    mode === "login"
-      ? "Login"
-      : "Create Account";
+  $("#authSubmit").textContent = mode === "login" ? "Login" : "Create Account";
 
   $("#authSwitch").textContent =
     mode === "login"
@@ -353,33 +334,20 @@ function showAuth(mode = "login", message = "") {
   setTimeout(() => $("#authEmail").focus(), 50);
 }
 
-
 function hideAuth() {
   $("#authScreen").classList.add("hidden");
 
   $("#userChip").classList.remove("hidden");
 
-  $("#userChipEmail").textContent =
-    currentUser?.email || "";
+  $("#userChipEmail").textContent = currentUser?.email || "";
 }
-
 
 /* =========================================================
    COMPLETE LOGIN AFTER AUTHENTICATION
 ========================================================= */
 
-async function finishAuthentication(
-  data,
-  oldLocal,
-  successMessage
-) {
-  /*
-    api.js returns:
-    { token, user }
-  */
-
+async function finishAuthentication(data, oldLocal, successMessage) {
   accessToken = data.token;
-
   currentUser = data.user;
 
   if (!accessToken) {
@@ -388,128 +356,61 @@ async function finishAuthentication(
     );
   }
 
-  localStorage.setItem(
-    "proptrack_access_token",
-    accessToken
-  );
-
-  localStorage.setItem(
-    "proptrack_user_email",
-    currentUser.email
-  );
+  localStorage.setItem("proptrack_access_token", accessToken);
+  localStorage.setItem("proptrack_user_email", currentUser.email);
 
   cloudReady = true;
-
-  /*
-    Load cloud data.
-  */
 
   let remote = null;
 
   try {
     remote = await cloud("/data");
   } catch (err) {
-    console.error(
-      "Cloud data load failed:",
-      err
-    );
+    console.error("Cloud data load failed:", err);
   }
 
   /*
-    If cloud already contains accounts,
-    use cloud data.
+    CLOUD IS THE SOURCE OF TRUTH
   */
 
-  if (
-    remote &&
-    Array.isArray(remote.accounts) &&
-    remote.accounts.length
-  ) {
+  if (remote && Array.isArray(remote.accounts)) {
     state = {
-      selectedId: state.selectedId,
-
-      accounts:
-        remote.accounts.map(
-          normalizeCloudAccount
-        ),
+      selectedId: remote.accounts[0]?.id || null,
+      accounts: remote.accounts.map(normalizeCloudAccount),
     };
 
     if (
-      !state.accounts.some(
-        x => x.id === state.selectedId
-      )
+      state.selectedId &&
+      state.accounts.some((account) => account.id === state.selectedId)
     ) {
-      state.selectedId =
-        state.accounts[0].id;
+      // keep it
+    } else {
+      state.selectedId = state.accounts[0]?.id || null;
     }
 
     saveLocal();
-
-  } else if (oldLocal?.accounts?.length) {
-
+  } else {
     /*
-      If cloud is empty but local data
-      already exists, upload local data.
+      New user / empty cloud
     */
 
-    state = oldLocal;
+    state = {
+      selectedId: null,
+      accounts: [],
+    };
 
     saveLocal();
-
-    await syncCloud();
-
-    /*
-      Fetch again so we know the
-      cloud data is available.
-    */
-
-    try {
-      const synced =
-        await cloud("/data");
-
-      if (
-        synced?.accounts?.length
-      ) {
-        state = {
-          selectedId:
-            state.selectedId,
-
-          accounts:
-            synced.accounts.map(
-              normalizeCloudAccount
-            ),
-        };
-
-        if (
-          !state.accounts.some(
-            x =>
-              x.id ===
-              state.selectedId
-          )
-        ) {
-          state.selectedId =
-            state.accounts[0].id;
-        }
-
-        saveLocal();
-      }
-
-    } catch (err) {
-      console.warn(
-        "Second cloud fetch failed:",
-        err
-      );
-    }
   }
 
   hideAuth();
 
   refreshAll();
 
-  toast(successMessage);
+  toast(
+    successMessage ||
+      "Authentication successful — cloud data loaded."
+  );
 }
-
-
 /* =========================================================
    LOGIN / SIGNUP
 ========================================================= */
@@ -517,14 +418,9 @@ async function finishAuthentication(
 async function handleAuth(e) {
   e.preventDefault();
 
-  const email =
-    $("#authEmail")
-      .value
-      .trim()
-      .toLowerCase();
+  const email = $("#authEmail").value.trim().toLowerCase();
 
-  const password =
-    $("#authPassword").value;
+  const password = $("#authPassword").value;
 
   if (!email || !password) {
     return;
@@ -535,64 +431,45 @@ async function handleAuth(e) {
   $("#authError").textContent = "";
 
   try {
-
     /*
       Keep old local data before
       authentication changes anything.
     */
 
-    const oldLocal =
-      JSON.parse(
-        localStorage.getItem(KEY) ||
-        "null"
-      );
-
+    const oldLocal = JSON.parse(localStorage.getItem(KEY) || "null");
 
     /* =====================================================
        LOGIN
     ===================================================== */
 
     if (authMode === "login") {
+      const response = await fetch("/.netlify/functions/api/login", {
+        method: "POST",
 
-      const response =
-        await fetch(
-          "/.netlify/functions/api/login",
-          {
-            method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
 
-            body: JSON.stringify({
-              email,
-              password,
-            }),
-          }
-        );
-
-      const data =
-        await response
-          .json()
-          .catch(() => ({}));
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(
-          data.error ||
-          "Unable to login."
-        );
+        throw new Error(data.error || "Unable to login.");
       }
 
       await finishAuthentication(
         data,
         oldLocal,
-        "Logged in — cloud data loaded."
+        "Logged in — cloud data loaded.",
       );
 
       return;
     }
-
 
     /* =====================================================
        SIGNUP — REQUEST OTP
@@ -602,34 +479,23 @@ async function handleAuth(e) {
 
     otpPassword = password;
 
-    const response =
-      await fetch(
-        "/.netlify/functions/api/signup",
-        {
-          method: "POST",
+    const response = await fetch("/.netlify/functions/api/signup", {
+      method: "POST",
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        }
-      );
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
 
-    const data =
-      await response
-        .json()
-        .catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(
-        data.error ||
-        "Unable to create account."
-      );
+      throw new Error(data.error || "Unable to create account.");
     }
 
     /*
@@ -637,33 +503,20 @@ async function handleAuth(e) {
     */
 
     if (data.requiresOtp) {
+      $("#otpSection").classList.remove("hidden");
 
-      $("#otpSection")
-        .classList
-        .remove("hidden");
+      $("#authForm").classList.add("hidden");
 
-      $("#authForm")
-        .classList
-        .add("hidden");
+      $("#authSwitch").classList.add("hidden");
 
-      $("#authSwitch")
-        .classList
-        .add("hidden");
+      $("#forgotPasswordBtn").classList.add("hidden");
 
-      $("#forgotPasswordBtn")
-        .classList
-        .add("hidden");
+      $("#authTitle").textContent = "Verify your email";
 
-      $("#authTitle")
-        .textContent =
-        "Verify your email";
-
-      $("#authSubtitle")
-        .textContent =
+      $("#authSubtitle").textContent =
         `We sent a 6-digit verification code to ${email}.`;
 
-      $("#authError")
-        .textContent = "";
+      $("#authError").textContent = "";
 
       $("#authOtp").value = "";
 
@@ -676,94 +529,54 @@ async function handleAuth(e) {
       Safety fallback.
     */
 
-    throw new Error(
-      "OTP verification is required."
-    );
-
+    throw new Error("OTP verification is required.");
   } catch (err) {
+    console.error("AUTH ERROR:", err);
 
-    console.error(
-      "AUTH ERROR:",
-      err
-    );
-
-    $("#authError")
-      .textContent =
-      err.message ||
-      "Unable to authenticate.";
-
+    $("#authError").textContent = err.message || "Unable to authenticate.";
   } finally {
-
-    $("#authSubmit")
-      .disabled = false;
+    $("#authSubmit").disabled = false;
   }
 }
-
 
 /* =========================================================
    VERIFY SIGNUP OTP
 ========================================================= */
 
 async function verifySignupOtp() {
+  const otp = $("#authOtp").value.trim();
 
-  const otp =
-    $("#authOtp")
-      .value
-      .trim();
-
-  $("#authError")
-    .textContent = "";
+  $("#authError").textContent = "";
 
   if (!/^\d{6}$/.test(otp)) {
-
-    $("#authError")
-      .textContent =
-      "Please enter the 6-digit verification code.";
+    $("#authError").textContent = "Please enter the 6-digit verification code.";
 
     return;
   }
 
-  $("#verifyOtpBtn")
-    .disabled = true;
+  $("#verifyOtpBtn").disabled = true;
 
   try {
+    const oldLocal = JSON.parse(localStorage.getItem(KEY) || "null");
 
-    const oldLocal =
-      JSON.parse(
-        localStorage.getItem(KEY) ||
-        "null"
-      );
+    const response = await fetch("/.netlify/functions/api/signup-verify", {
+      method: "POST",
 
-    const response =
-      await fetch(
-        "/.netlify/functions/api/signup-verify",
-        {
-          method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+      body: JSON.stringify({
+        email: otpEmail,
+        password: otpPassword,
+        otp,
+      }),
+    });
 
-          body: JSON.stringify({
-            email: otpEmail,
-            password: otpPassword,
-            otp,
-          }),
-        }
-      );
-
-    const data =
-      await response
-        .json()
-        .catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-
-      throw new Error(
-        data.error ||
-        "Verification failed."
-      );
+      throw new Error(data.error || "Verification failed.");
     }
 
     /*
@@ -774,7 +587,7 @@ async function verifySignupOtp() {
     await finishAuthentication(
       data,
       oldLocal,
-      "Account created — cloud sync connected."
+      "Account created — cloud sync connected.",
     );
 
     /*
@@ -783,104 +596,63 @@ async function verifySignupOtp() {
 
     otpEmail = "";
     otpPassword = "";
-
   } catch (err) {
+    console.error("OTP ERROR:", err);
 
-    console.error(
-      "OTP ERROR:",
-      err
-    );
-
-    $("#authError")
-      .textContent =
-      err.message ||
-      "Unable to verify email.";
-
+    $("#authError").textContent = err.message || "Unable to verify email.";
   } finally {
-
-    $("#verifyOtpBtn")
-      .disabled = false;
+    $("#verifyOtpBtn").disabled = false;
   }
 }
-
 
 /* =========================================================
    RESEND SIGNUP OTP
 ========================================================= */
 
 async function resendSignupOtp() {
-
   if (!otpEmail || !otpPassword) {
     return;
   }
 
-  $("#resendOtpBtn")
-    .disabled = true;
+  $("#resendOtpBtn").disabled = true;
 
-  $("#authError")
-    .textContent =
-    "Sending a new verification code...";
+  $("#authError").textContent = "Sending a new verification code...";
 
   try {
+    const response = await fetch("/.netlify/functions/api/signup", {
+      method: "POST",
 
-    const response =
-      await fetch(
-        "/.netlify/functions/api/signup",
-        {
-          method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+      body: JSON.stringify({
+        email: otpEmail,
+        password: otpPassword,
+      }),
+    });
 
-          body: JSON.stringify({
-            email: otpEmail,
-            password: otpPassword,
-          }),
-        }
-      );
-
-    const data =
-      await response
-        .json()
-        .catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-
-      throw new Error(
-        data.error ||
-        "Unable to resend code."
-      );
+      throw new Error(data.error || "Unable to resend code.");
     }
 
-    $("#authError")
-      .textContent =
-      "A new verification code was sent.";
+    $("#authError").textContent = "A new verification code was sent.";
 
     $("#authOtp").value = "";
 
     $("#authOtp").focus();
-
   } catch (err) {
-
-    $("#authError")
-      .textContent =
-      err.message ||
-      "Unable to resend code.";
-
+    $("#authError").textContent = err.message || "Unable to resend code.";
   } finally {
-
     /*
       Prevent accidental rapid
       repeated requests.
     */
 
     setTimeout(() => {
-
-      $("#resendOtpBtn")
-        .disabled = false;
-
+      $("#resendOtpBtn").disabled = false;
     }, 30000);
   }
 }
@@ -985,9 +757,9 @@ async function initCloud() {
 
     if (remote && Array.isArray(remote.accounts) && remote.accounts.length) {
       state = {
-  selectedId: state.selectedId,
-  accounts: remote.accounts.map(normalizeCloudAccount),
-};
+        selectedId: state.selectedId,
+        accounts: remote.accounts.map(normalizeCloudAccount),
+      };
 
       if (!state.accounts.some((x) => x.id === state.selectedId)) {
         state.selectedId = state.accounts[0].id;
@@ -2257,8 +2029,7 @@ $("#accountForm").onsubmit = (e) => {
     dailyDd:
       dailyDdType === "percent" ? (size * dailyDdInput) / 100 : dailyDdInput,
 
-    resetTime:
-  $("#resetTime").value || "07:00",
+    resetTime: $("#resetTime").value || "07:00",
 
     ddMode: $("#ddMode").value,
 
@@ -2391,9 +2162,7 @@ function toast(s) {
    EVENT LISTENERS
 ========================================================= */
 
-$$(".nav-item").forEach(
-  (b) => (b.onclick = () => view(b.dataset.view))
-);
+$$(".nav-item").forEach((b) => (b.onclick = () => view(b.dataset.view)));
 
 $("#accountSwitcher").onchange = (e) => {
   state.selectedId = e.target.value;
@@ -2403,27 +2172,20 @@ $("#accountSwitcher").onchange = (e) => {
   refreshAll();
 };
 
-$("#quickTradeBtn").onclick = () =>
-  view("trade");
+$("#quickTradeBtn").onclick = () => view("trade");
 
 $("#authForm").onsubmit = handleAuth;
 
 $("#authSwitch").onclick = () =>
-  showAuth(
-    authMode === "login"
-      ? "signup"
-      : "login"
-  );
+  showAuth(authMode === "login" ? "signup" : "login");
 
 /* =========================================================
    OTP LISTENERS
 ========================================================= */
 
-$("#verifyOtpBtn").onclick =
-  verifySignupOtp;
+$("#verifyOtpBtn").onclick = verifySignupOtp;
 
-$("#resendOtpBtn").onclick =
-  resendSignupOtp;
+$("#resendOtpBtn").onclick = resendSignupOtp;
 
 $("#logoutTop").onclick = logout;
 
@@ -2431,6 +2193,6 @@ $("#logoutTop").onclick = logout;
    START APPLICATION
 ========================================================= */
 
-refreshAll();
+// refreshAll();
 
 initCloud();
