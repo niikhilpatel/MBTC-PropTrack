@@ -233,8 +233,7 @@ function refreshSwitch() {
   s.innerHTML = state.accounts
     .map(
       (x) =>
-        `<option value="${x.id}" ${
-          x.id === state.selectedId ? "selected" : ""
+        `<option value="${x.id}" ${x.id === state.selectedId ? "selected" : ""
         }>${esc(x.firm)} — ${esc(x.name)}</option>`,
     )
     .join("");
@@ -401,8 +400,7 @@ async function handleAuth(e) {
 
       saveLocal();
     } else if (oldLocal?.accounts?.length) {
-
-    /*
+      /*
       If cloud is empty but local data
       already exists, upload local data.
     */
@@ -657,8 +655,8 @@ function renderDashboard() {
 
         <div class="muted">
           ${b - x.startingBalance >= 0 ? "+" : ""}${money(
-            b - x.startingBalance,
-          )} overall
+    b - x.startingBalance,
+  )} overall
         </div>
       </div>
 
@@ -747,9 +745,9 @@ function renderDashboard() {
             <div
               class="fill"
               style="width:${fill(
-                Math.max(0, b - x.startingBalance),
-                x.target,
-              )}%"
+    Math.max(0, b - x.startingBalance),
+    x.target,
+  )}%"
             ></div>
           </div>
 
@@ -818,11 +816,13 @@ function renderDashboard() {
           </div>
 
           <div class="muted">
-            ${money(dr)}
-            remaining ·
-            resets
-            ${esc(x.resetTime)}
-          </div>
+  ${money(dr)}
+  remaining ·
+  resets
+  ${esc(x.resetTime || x.reset_time || "00:00")}
+</div>
+
+
 
         </div>
 
@@ -934,10 +934,10 @@ function renderDashboard() {
       </div>
 
       ${table(
-        [...x.trades]
-          .sort((p, q) => new Date(q.date) - new Date(p.date))
-          .slice(0, 7),
-      )}
+    [...x.trades]
+      .sort((p, q) => new Date(q.date) - new Date(p.date))
+      .slice(0, 7),
+  )}
 
     </div>
   `;
@@ -985,8 +985,8 @@ function table(ts) {
         <tbody>
 
           ${ts
-            .map(
-              (t) => `
+      .map(
+        (t) => `
                 <tr>
 
                   <td>
@@ -1021,8 +1021,8 @@ function table(ts) {
 
                 </tr>
               `,
-            )
-            .join("")}
+      )
+      .join("")}
 
         </tbody>
 
@@ -1078,8 +1078,8 @@ function renderAccounts() {
     >
 
       ${state.accounts
-        .map(
-          (x) => `
+      .map(
+        (x) => `
             <div class="panel">
 
               <div class="panel-head">
@@ -1162,8 +1162,8 @@ function renderAccounts() {
 
             </div>
           `,
-        )
-        .join("")}
+      )
+      .join("")}
 
     </div>
   `;
@@ -1172,15 +1172,15 @@ function renderAccounts() {
 
   $$(".open-account").forEach(
     (b) =>
-      (b.onclick = () => {
-        state.selectedId = b.dataset.id;
+    (b.onclick = () => {
+      state.selectedId = b.dataset.id;
 
-        save();
+      save();
 
-        refreshAll();
+      refreshAll();
 
-        view("dashboard");
-      }),
+      view("dashboard");
+    }),
   );
 
   $$(".edit-account").forEach(
@@ -1189,11 +1189,11 @@ function renderAccounts() {
 
   $$(".del-account").forEach(
     (b) =>
-      (b.onclick = () => {
-        pendingDelete = b.dataset.id;
+    (b.onclick = () => {
+      pendingDelete = b.dataset.id;
 
-        $("#deleteModal").classList.remove("hidden");
-      }),
+      $("#deleteModal").classList.remove("hidden");
+    }),
   );
 }
 
@@ -1517,10 +1517,10 @@ function renderHistory() {
       </div>
 
       ${table(
-        x
-          ? [...x.trades].sort((p, q) => new Date(q.date) - new Date(p.date))
-          : [],
-      )}
+    x
+      ? [...x.trades].sort((p, q) => new Date(q.date) - new Date(p.date))
+      : [],
+  )}
 
     </div>
   `;
