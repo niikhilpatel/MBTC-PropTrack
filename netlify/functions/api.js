@@ -539,6 +539,8 @@ exports.handler = async (event) => {
 
       dailyDdInput: dailyDdInput,
 
+      resetTime: account.reset_time || "00:00",
+
       createdAt:
         account.created_at ||
         new Date().toISOString(),
