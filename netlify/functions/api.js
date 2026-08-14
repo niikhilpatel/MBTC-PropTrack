@@ -103,6 +103,88 @@ function verifyPassword(password, storedHash) {
   }
 }
 
+
+/* =========================================================
+   OTP HELPERS
+========================================================= */
+
+function createOtp() {
+  return String(
+    Math.floor(100000 + Math.random() * 900000)
+  );
+}
+
+function hashOtp(otp) {
+  return crypto
+    .createHash("sha256")
+    .update(String(otp))
+    .digest("hex");
+}
+
+async function sendOtpEmail(email, otp, purpose) {
+  const subject =
+    purpose === "signup"
+      ? "Your PropTrack verification code"
+      : "Your PropTrack password reset code";
+
+  const response = await fetch(
+    "https://api.resend.com/emails",
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        Authorization:
+          `Bearer ${process.env.RESEND_API_KEY}`
+      },
+
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL,
+        to: [email],
+        subject,
+
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;">
+            <h2>PropTrack</h2>
+
+            <p>Your verification code is:</p>
+
+            <div style="
+              font-size:32px;
+              font-weight:bold;
+              letter-spacing:8px;
+              margin:25px 0;
+            ">
+              ${otp}
+            </div>
+
+            <p>This code expires in 10 minutes.</p>
+
+            <p>
+              If you did not request this code,
+              you can safely ignore this email.
+            </p>
+          </div>
+        `
+      })
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    console.error("RESEND ERROR:", data);
+
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      "Unable to send verification email."
+    );
+  }
+
+  return data;
+}
+
 /* =========================================================
    TOKEN
 ========================================================= */
