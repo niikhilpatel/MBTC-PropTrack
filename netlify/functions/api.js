@@ -606,47 +606,43 @@ exports.handler = async (event) => {
   for (const account of uniqueAccounts) {
 
     const row = {
-      id: account.id,
-      user_id: userId,
+  id: account.id,
+  user_id: userId,
 
-      firm: account.firm || "",
-      name: account.name || "",
+  firm: account.firm || "",
+  name: account.name || "",
 
-      account_size: Number(
-        account.accountSize || 0
-      ),
+  account_size: Number(account.accountSize || 0),
 
-      target_type:
-        account.targetType || "usd",
+  target_type: account.targetType || "usd",
+  target_input:
+    account.targetInput ?? account.target ?? 0,
 
-      target_input:
-        account.targetInput ??
-        account.target ??
-        0,
+  max_dd_type: account.maxDdType || "usd",
+  max_dd_input:
+    account.maxDdInput ?? account.maxDd ?? 0,
 
-      max_dd_type:
-        account.maxDdType || "usd",
+  daily_dd_type: account.dailyDdType || "usd",
+  daily_dd_input:
+    account.dailyDdInput ?? account.dailyDd ?? 0,
 
-      max_dd_input:
-        account.maxDdInput ??
-        account.maxDd ??
-        0,
+  reset_time:
+    account.resetTime ||
+    account.reset_time ||
+    "00:00",
 
-      daily_dd_type:
-        account.dailyDdType || "usd",
+  dd_mode:
+    account.ddMode ||
+    "static",
 
-      daily_dd_input:
-        account.dailyDdInput ??
-        account.dailyDd ??
-        0,
+  notes:
+    account.notes ||
+    null,
 
-      reset_time:
-  account.resetTime || account.reset_time || "00:00",
-
-      created_at:
-        account.createdAt ||
-        new Date().toISOString()
-    };
+  created_at:
+    account.createdAt ||
+    new Date().toISOString()
+};
 
     /*
      * Update existing account belonging to this user.
