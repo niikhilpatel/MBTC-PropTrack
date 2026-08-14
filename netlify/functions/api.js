@@ -310,74 +310,312 @@ exports.handler = async (event) => {
        SIGNUP
     ===================================================== */
 
-    if (path === "signup") {
-      if (event.httpMethod !== "POST") {
-        return json(405, {
-          error: "Method Not Allowed"
-        });
-      }
+/* =====================================================
+   SIGNUP - SEND OTP
+===================================================== */
 
-      const body = JSON.parse(event.body || "{}");
+if (path === "signup") {
 
-      const email = String(body.email || "")
-        .trim()
-        .toLowerCase();
+  if (event.httpMethod !== "POST") {
+    return json(405, {
+      error: "Method Not Allowed"
+    });
+  }
 
-      const password = String(body.password || "");
+  const body = JSON.parse(event.body || "{}");
 
-      if (!email || !password) {
-        return json(400, {
-          error: "Email and password are required."
-        });
-      }
+  const email = String(body.email || "")
+    .trim()
+    .toLowerCase();
 
-      if (password.length < 6) {
-        return json(400, {
-          error: "Password must be at least 6 characters."
-        });
-      }
+  const password = String(body.password || "");
 
-      const existingUsers = await sb(
-        `users?email=eq.${encodeURIComponent(
-          email
-        )}&select=id,email`
-      );
+  if (!email || !password) {
+    return json(400, {
+      error: "Email and password are required."
+    });
+  }
 
-      if (existingUsers.length > 0) {
-        return json(409, {
-          error: "An account with this email already exists."
-        });
-      }
+  if (password.length < 6) {
+    return json(400, {
+      error: "Password must be at least 6 characters."
+    });
+  }
 
-      const passwordHash =
-        createPasswordHash(password);
+  /*
+    Check whether account already exists.
+  */
 
-      const users = await sb("users", {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          password_hash: passwordHash,
-          created_at: new Date().toISOString()
-        })
-      });
+  const existingUsers = await sb(
+    `users?email=eq.${encodeURIComponent(
+      email
+    )}&select=id,email`
+  );
 
-      if (!users.length) {
-        throw new Error("Unable to create user.");
-      }
+  if (existingUsers.length > 0) {
+    return json(409, {
+      error: "An account with this email already exists."
+    });
+  }
 
-      const user = users[0];
+  /*
+    Generate OTP.
+  */
 
-      const token = await createSession(user.id);
+  const otp = createOtp();
 
-      return json(201, {
-        ok: true,
-        token,
-        user: {
-          id: user.id,
-          email: user.email
-        }
-      });
+  const otpHash = hashOtp(otp);
+
+  const expiresAt = new Date(
+    Date.now() + 10 * 60 * 1000
+  ).toISOString();
+
+  /*
+    Remove previous signup OTPs
+    for this email.
+  */
+
+  await sb(
+    `email_otps?email=eq.${encodeURIComponent(
+      email
+    )}&purpose=eq.signup`,
+    {
+      method: "DELETE"
     }
+  );
+
+  /*
+    Store OTP hash.
+  */
+
+  await sb("email_otps", {
+    method: "POST",
+
+    body: JSON.stringify({
+      email,
+      otp_hash: otpHash,
+      purpose: "signup",
+      expires_at: expiresAt,
+      attempts: 0,
+      created_at: new Date().toISOString()
+    })
+  });
+
+  /*
+    Send OTP email.
+  */
+
+  await sendOtpEmail(
+    email,
+    otp,
+    "signup"
+  );
+
+  return json(200, {
+    ok: true,
+    requiresOtp: true,
+    message:
+      "Verification code sent to your email."
+  });
+}
+
+
+/* =====================================================
+   SIGNUP - VERIFY OTP
+===================================================== */
+
+if (path === "signup-verify") {
+
+  if (event.httpMethod !== "POST") {
+    return json(405, {
+      error: "Method Not Allowed"
+    });
+  }
+
+  const body = JSON.parse(event.body || "{}");
+
+  const email = String(body.email || "")
+    .trim()
+    .toLowerCase();
+
+  const password = String(body.password || "");
+
+  const otp = String(body.otp || "")
+    .trim();
+
+  if (!email || !password || !otp) {
+    return json(400, {
+      error:
+        "Email, password and verification code are required."
+    });
+  }
+
+  if (!/^\d{6}$/.test(otp)) {
+    return json(400, {
+      error: "Verification code must be 6 digits."
+    });
+  }
+
+  /*
+    Make sure account hasn't already
+    been created.
+  */
+
+  const existingUsers = await sb(
+    `users?email=eq.${encodeURIComponent(
+      email
+    )}&select=id,email`
+  );
+
+  if (existingUsers.length > 0) {
+    return json(409, {
+      error: "An account with this email already exists."
+    });
+  }
+
+  /*
+    Get latest OTP.
+  */
+
+  const otpRows = await sb(
+    `email_otps?email=eq.${encodeURIComponent(
+      email
+    )}&purpose=eq.signup&select=*&order=created_at.desc&limit=1`
+  );
+
+  if (!otpRows.length) {
+    return json(400, {
+      error:
+        "Verification code not found. Please request a new code."
+    });
+  }
+
+  const otpRecord = otpRows[0];
+
+  /*
+    Check expiration.
+  */
+
+  if (
+    !otpRecord.expires_at ||
+    new Date(otpRecord.expires_at) < new Date()
+  ) {
+
+    await sb(
+      `email_otps?id=eq.${encodeURIComponent(
+        otpRecord.id
+      )}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+    return json(400, {
+      error:
+        "Verification code has expired. Please request a new code."
+    });
+  }
+
+  /*
+    Check attempts.
+  */
+
+  const attempts = Number(
+    otpRecord.attempts || 0
+  );
+
+  if (attempts >= 5) {
+    return json(429, {
+      error:
+        "Too many incorrect attempts. Please request a new code."
+    });
+  }
+
+  /*
+    Compare OTP hash.
+  */
+
+  const suppliedHash = hashOtp(otp);
+
+  if (
+    suppliedHash !== otpRecord.otp_hash
+  ) {
+
+    await sb(
+      `email_otps?id=eq.${encodeURIComponent(
+        otpRecord.id
+      )}`,
+      {
+        method: "PATCH",
+
+        body: JSON.stringify({
+          attempts: attempts + 1
+        })
+      }
+    );
+
+    return json(401, {
+      error:
+        "Incorrect verification code."
+    });
+  }
+
+  /*
+    OTP is correct.
+    Now create the account.
+  */
+
+  const passwordHash =
+    createPasswordHash(password);
+
+  const users = await sb("users", {
+    method: "POST",
+
+    body: JSON.stringify({
+      email,
+      password_hash: passwordHash,
+      created_at: new Date().toISOString()
+    })
+  });
+
+  if (!users.length) {
+    throw new Error(
+      "Unable to create user."
+    );
+  }
+
+  const user = users[0];
+
+  /*
+    OTP can no longer be reused.
+  */
+
+  await sb(
+    `email_otps?id=eq.${encodeURIComponent(
+      otpRecord.id
+    )}`,
+    {
+      method: "DELETE"
+    }
+  );
+
+  /*
+    Create login session.
+  */
+
+  const token =
+    await createSession(user.id);
+
+  return json(201, {
+    ok: true,
+    token,
+
+    user: {
+      id: user.id,
+      email: user.email
+    }
+  });
+}
 
     /* =====================================================
        LOGIN
