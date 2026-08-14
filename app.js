@@ -1,13 +1,12 @@
 const KEY = "proptrack_v2";
 
-const $ = s => document.querySelector(s);
-const $$ = s => [...document.querySelectorAll(s)];
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
 
 let state = loadLocal();
 let pendingDelete = null;
 let cloudReady = false;
-let accessToken =
-  localStorage.getItem("proptrack_access_token") || null;
+let accessToken = localStorage.getItem("proptrack_access_token") || null;
 let currentUser = null;
 let syncing = false;
 let authMode = "login";
@@ -53,9 +52,9 @@ function defaultState() {
         ddMode: "static",
         notes: "",
 
-        trades: []
-      }
-    ]
+        trades: [],
+      },
+    ],
   };
 }
 
@@ -74,49 +73,38 @@ function loadLocal() {
 }
 
 function saveLocal() {
-  localStorage.setItem(
-    KEY,
-    JSON.stringify(state)
-  );
+  localStorage.setItem(KEY, JSON.stringify(state));
 }
 
 function a() {
   return (
-    state.accounts.find(
-      x => x.id === state.selectedId
-    ) ||
-    state.accounts[0]
+    state.accounts.find((x) => x.id === state.selectedId) || state.accounts[0]
   );
 }
 
 function money(n) {
-  return new Intl.NumberFormat(
-    "en-US",
-    {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2
-    }
-  ).format(Number(n) || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(Number(n) || 0);
 }
 
 function pct(n) {
-  return (
-    (Number(n) || 0).toFixed(2) +
-    "%"
-  );
+  return (Number(n) || 0).toFixed(2) + "%";
 }
 
 function esc(s) {
   return String(s ?? "").replace(
     /[&<>"']/g,
-    m => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    }[m])
+    (m) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      })[m],
   );
 }
 
@@ -127,27 +115,18 @@ function esc(s) {
 function bal(x) {
   return (
     Number(x.startingBalance || 0) +
-    x.trades.reduce(
-      (s, t) =>
-        s + Number(t.pnl || 0),
-      0
-    )
+    x.trades.reduce((s, t) => s + Number(t.pnl || 0), 0)
   );
 }
 
 function high(x) {
-  let b =
-    Number(x.startingBalance || 0);
+  let b = Number(x.startingBalance || 0);
 
   let h = b;
 
   [...x.trades]
-    .sort(
-      (p, q) =>
-        new Date(p.date) -
-        new Date(q.date)
-    )
-    .forEach(t => {
+    .sort((p, q) => new Date(p.date) - new Date(q.date))
+    .forEach((t) => {
       b += Number(t.pnl || 0);
       h = Math.max(h, b);
     });
@@ -157,22 +136,13 @@ function high(x) {
 
 function maxUsed(x) {
   const base =
-    x.ddMode === "trailing"
-      ? high(x)
-      : Number(x.startingBalance || 0);
+    x.ddMode === "trailing" ? high(x) : Number(x.startingBalance || 0);
 
-  return Math.max(
-    0,
-    base - bal(x)
-  );
+  return Math.max(0, base - bal(x));
 }
 
 function maxRem(x) {
-  return Math.max(
-    0,
-    Number(x.maxDd || 0) -
-      maxUsed(x)
-  );
+  return Math.max(0, Number(x.maxDd || 0) - maxUsed(x));
 }
 
 function dayKey(d = new Date()) {
@@ -182,110 +152,57 @@ function dayKey(d = new Date()) {
 
 function today(x) {
   return x.trades
-    .filter(
-      t =>
-        dayKey(t.date) ===
-        dayKey()
-    )
-    .reduce(
-      (s, t) =>
-        s + Number(t.pnl || 0),
-      0
-    );
+    .filter((t) => dayKey(t.date) === dayKey())
+    .reduce((s, t) => s + Number(t.pnl || 0), 0);
 }
 
 function dailyRem(x) {
-  return Math.max(
-    0,
-    Number(x.dailyDd || 0) +
-      Math.min(0, today(x))
-  );
+  return Math.max(0, Number(x.dailyDd || 0) + Math.min(0, today(x)));
 }
 
 function dailyUsed(x) {
-  return Math.max(
-    0,
-    -today(x)
-  );
+  return Math.max(0, -today(x));
 }
 
 function targetRemaining(x) {
   return Math.max(
     0,
-    Number(x.target || 0) -
-      (
-        bal(x) -
-        Number(x.startingBalance || 0)
-      )
+    Number(x.target || 0) - (bal(x) - Number(x.startingBalance || 0)),
   );
 }
 
 function accountStatus(x) {
   const b = bal(x);
 
-  const profit =
-    b -
-    Number(x.startingBalance || 0);
+  const profit = b - Number(x.startingBalance || 0);
 
   const used = maxUsed(x);
 
-  if (
-    used >=
-    Number(x.maxDd || 0)
-  ) {
-    return [
-      "danger",
-      "FAILED",
-      "Maximum drawdown hit"
-    ];
+  if (used >= Number(x.maxDd || 0)) {
+    return ["danger", "FAILED", "Maximum drawdown hit"];
   }
 
-  if (
-    profit >=
-    Number(x.target || 0)
-  ) {
-    return [
-      "passed",
-      "PASSED",
-      "Profit target achieved"
-    ];
+  if (profit >= Number(x.target || 0)) {
+    return ["passed", "PASSED", "Profit target achieved"];
   }
 
-  return [
-    "",
-    "SAFE",
-    "Account active"
-  ];
+  return ["", "SAFE", "Account active"];
 }
 
 function statusBadge(x) {
-  const [c, t] =
-    accountStatus(x);
+  const [c, t] = accountStatus(x);
 
   return `<span class="status ${c}">● ${t}</span>`;
 }
 
 function risk(r, l) {
-  if (r <= 0)
-    return [
-      "danger",
-      "Breached"
-    ];
+  if (r <= 0) return ["danger", "Breached"];
 
-  if (
-    l &&
-    1 - r / l >= 0.75
-  ) {
-    return [
-      "warning",
-      "Caution"
-    ];
+  if (l && 1 - r / l >= 0.75) {
+    return ["warning", "Caution"];
   }
 
-  return [
-    "",
-    "Safe"
-  ];
+  return ["", "Safe"];
 }
 
 function badge(c, t) {
@@ -293,28 +210,15 @@ function badge(c, t) {
 }
 
 function fill(n, l) {
-  return l
-    ? Math.min(
-        100,
-        Math.max(
-          0,
-          (n / l) * 100
-        )
-      )
-    : 0;
+  return l ? Math.min(100, Math.max(0, (n / l) * 100)) : 0;
 }
 
 function localDT() {
   const d = new Date();
 
-  d.setMinutes(
-    d.getMinutes() -
-      d.getTimezoneOffset()
-  );
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
 
-  return d
-    .toISOString()
-    .slice(0, 16);
+  return d.toISOString().slice(0, 16);
 }
 
 /* =========================================================
@@ -322,66 +226,43 @@ function localDT() {
 ========================================================= */
 
 function refreshSwitch() {
-  const s =
-    $("#accountSwitcher");
+  const s = $("#accountSwitcher");
 
   if (!s) return;
 
-  s.innerHTML =
-    state.accounts
-      .map(
-        x =>
-          `<option value="${x.id}" ${
-            x.id === state.selectedId
-              ? "selected"
-              : ""
-          }>${esc(x.firm)} — ${esc(
-            x.name
-          )}</option>`
-      )
-      .join("");
+  s.innerHTML = state.accounts
+    .map(
+      (x) =>
+        `<option value="${x.id}" ${
+          x.id === state.selectedId ? "selected" : ""
+        }>${esc(x.firm)} — ${esc(x.name)}</option>`,
+    )
+    .join("");
 }
 
 /* =========================================================
    CLOUD API
 ========================================================= */
 
-async function cloud(
-  path,
-  options = {}
-) {
+async function cloud(path, options = {}) {
   const headers = {
-    "Content-Type":
-      "application/json",
-    ...(options.headers || {})
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
   };
 
   if (accessToken) {
-    headers.Authorization =
-      "Bearer " +
-      accessToken;
+    headers.Authorization = "Bearer " + accessToken;
   }
 
-  const response =
-    await fetch(
-      "/.netlify/functions/api" +
-        path,
-      {
-        ...options,
-        headers
-      }
-    );
+  const response = await fetch("/.netlify/functions/api" + path, {
+    ...options,
+    headers,
+  });
 
-  const data =
-    await response
-      .json()
-      .catch(() => ({}));
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(
-      data.error ||
-        `Cloud error ${response.status}`
-    );
+    throw new Error(data.error || `Cloud error ${response.status}`);
   }
 
   return data;
@@ -391,59 +272,39 @@ async function cloud(
    AUTH UI
 ========================================================= */
 
-function showAuth(
-  mode = "login",
-  message = ""
-) {
+function showAuth(mode = "login", message = "") {
   authMode = mode;
 
-  $("#authScreen")
-    .classList
-    .remove("hidden");
+  $("#authScreen").classList.remove("hidden");
 
   $("#authTitle").textContent =
-    mode === "login"
-      ? "Welcome back"
-      : "Create your account";
+    mode === "login" ? "Welcome back" : "Create your account";
 
   $("#authSubtitle").textContent =
     mode === "login"
       ? "Sign in to access your accounts and trades from anywhere."
       : "Create one account and keep your PropTrack data in the cloud.";
 
-  $("#authSubmit").textContent =
-    mode === "login"
-      ? "Login"
-      : "Create Account";
+  $("#authSubmit").textContent = mode === "login" ? "Login" : "Create Account";
 
   $("#authSwitch").textContent =
     mode === "login"
       ? "Create a new account"
       : "Already have an account? Login";
 
-  $("#authError").textContent =
-    message || "";
+  $("#authError").textContent = message || "";
 
   $("#authPassword").value = "";
 
-  setTimeout(
-    () =>
-      $("#authEmail").focus(),
-    50
-  );
+  setTimeout(() => $("#authEmail").focus(), 50);
 }
 
 function hideAuth() {
-  $("#authScreen")
-    .classList
-    .add("hidden");
+  $("#authScreen").classList.add("hidden");
 
-  $("#userChip")
-    .classList
-    .remove("hidden");
+  $("#userChip").classList.remove("hidden");
 
-  $("#userChipEmail").textContent =
-    currentUser?.email || "";
+  $("#userChipEmail").textContent = currentUser?.email || "";
 }
 
 /* =========================================================
@@ -453,23 +314,15 @@ function hideAuth() {
 async function handleAuth(e) {
   e.preventDefault();
 
-  const email =
-    $("#authEmail")
-      .value
-      .trim()
-      .toLowerCase();
+  const email = $("#authEmail").value.trim().toLowerCase();
 
-  const password =
-    $("#authPassword").value;
+  const password = $("#authPassword").value;
 
-  if (!email || !password)
-    return;
+  if (!email || !password) return;
 
-  $("#authSubmit").disabled =
-    true;
+  $("#authSubmit").disabled = true;
 
-  $("#authError").textContent =
-    "";
+  $("#authError").textContent = "";
 
   try {
     /*
@@ -477,44 +330,25 @@ async function handleAuth(e) {
       authentication changes anything.
     */
 
-    const oldLocal =
-      JSON.parse(
-        localStorage.getItem(KEY) ||
-          "null"
-      );
+    const oldLocal = JSON.parse(localStorage.getItem(KEY) || "null");
 
-    const endpoint =
-      authMode === "login"
-        ? "login"
-        : "signup";
+    const endpoint = authMode === "login" ? "login" : "signup";
 
-    const response =
-      await fetch(
-        "/.netlify/functions/api/" +
-          endpoint,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-          body: JSON.stringify({
-            email,
-            password
-          })
-        }
-      );
+    const response = await fetch("/.netlify/functions/api/" + endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
 
-    const data =
-      await response
-        .json()
-        .catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(
-        data.error ||
-          "Authentication failed"
-      );
+      throw new Error(data.error || "Authentication failed");
     }
 
     /*
@@ -523,27 +357,17 @@ async function handleAuth(e) {
       NOT { access_token }
     */
 
-    accessToken =
-      data.token;
+    accessToken = data.token;
 
-    currentUser =
-      data.user;
+    currentUser = data.user;
 
     if (!accessToken) {
-      throw new Error(
-        "Login succeeded but no session token was returned."
-      );
+      throw new Error("Login succeeded but no session token was returned.");
     }
 
-    localStorage.setItem(
-      "proptrack_access_token",
-      accessToken
-    );
+    localStorage.setItem("proptrack_access_token", accessToken);
 
-    localStorage.setItem(
-      "proptrack_user_email",
-      currentUser.email
-    );
+    localStorage.setItem("proptrack_user_email", currentUser.email);
 
     cloudReady = true;
 
@@ -554,13 +378,9 @@ async function handleAuth(e) {
     let remote = null;
 
     try {
-      remote =
-        await cloud("/data");
+      remote = await cloud("/data");
     } catch (err) {
-      console.error(
-        "Cloud data load failed:",
-        err
-      );
+      console.error("Cloud data load failed:", err);
     }
 
     /*
@@ -568,42 +388,24 @@ async function handleAuth(e) {
       use cloud data.
     */
 
-    if (
-      remote &&
-      Array.isArray(
-        remote.accounts
-      ) &&
-      remote.accounts.length
-    ) {
+    if (remote && Array.isArray(remote.accounts) && remote.accounts.length) {
       state = {
-        selectedId:
-          state.selectedId,
-        accounts:
-          remote.accounts
+        selectedId: state.selectedId,
+
+        accounts: remote.accounts.map(normalizeCloudAccount),
       };
 
-      if (
-        !state.accounts.some(
-          x =>
-            x.id ===
-            state.selectedId
-        )
-      ) {
-        state.selectedId =
-          state.accounts[0].id;
+      if (!state.accounts.some((x) => x.id === state.selectedId)) {
+        state.selectedId = state.accounts[0].id;
       }
 
       saveLocal();
-    }
+    } else if (oldLocal?.accounts?.length) {
 
     /*
       If cloud is empty but local data
       already exists, upload local data.
     */
-
-    else if (
-      oldLocal?.accounts?.length
-    ) {
       state = oldLocal;
 
       saveLocal();
@@ -616,37 +418,23 @@ async function handleAuth(e) {
       */
 
       try {
-        const synced =
-          await cloud("/data");
+        const synced = await cloud("/data");
 
-        if (
-          synced?.accounts?.length
-        ) {
+        if (synced?.accounts?.length) {
           state = {
-            selectedId:
-              state.selectedId,
-            accounts:
-              synced.accounts
+            selectedId: state.selectedId,
+
+            accounts: synced.accounts.map(normalizeCloudAccount),
           };
 
-          if (
-            !state.accounts.some(
-              x =>
-                x.id ===
-                state.selectedId
-            )
-          ) {
-            state.selectedId =
-              state.accounts[0].id;
+          if (!state.accounts.some((x) => x.id === state.selectedId)) {
+            state.selectedId = state.accounts[0].id;
           }
 
           saveLocal();
         }
       } catch (err) {
-        console.warn(
-          "Second cloud fetch failed:",
-          err
-        );
+        console.warn("Second cloud fetch failed:", err);
       }
     }
 
@@ -657,22 +445,14 @@ async function handleAuth(e) {
     toast(
       authMode === "login"
         ? "Logged in — cloud data loaded."
-        : "Account created — cloud sync connected."
+        : "Account created — cloud sync connected.",
     );
-
   } catch (err) {
-    console.error(
-      "AUTH ERROR:",
-      err
-    );
+    console.error("AUTH ERROR:", err);
 
-    $("#authError").textContent =
-      err.message ||
-      "Unable to sign in.";
-
+    $("#authError").textContent = err.message || "Unable to sign in.";
   } finally {
-    $("#authSubmit").disabled =
-      false;
+    $("#authSubmit").disabled = false;
   }
 }
 
@@ -685,23 +465,70 @@ async function logout() {
   currentUser = null;
   cloudReady = false;
 
-  localStorage.removeItem(
-    "proptrack_access_token"
-  );
+  localStorage.removeItem("proptrack_access_token");
 
-  localStorage.removeItem(
-    "proptrack_user_email"
-  );
+  localStorage.removeItem("proptrack_user_email");
 
-  $("#userChip")
-    .classList
-    .add("hidden");
+  $("#userChip").classList.add("hidden");
 
   showAuth("login");
 
   toast("Logged out.");
 }
 
+// account percentage  calculation mistake solve from here
+
+function normalizeCloudAccount(account) {
+  const size = Number(account.accountSize ?? account.account_size ?? 0);
+
+  const start = Number(
+    account.startingBalance ?? account.starting_balance ?? size,
+  );
+
+  const targetType = account.targetType ?? account.target_type ?? "percent";
+
+  const targetInput = Number(account.targetInput ?? account.target_input ?? 0);
+
+  const maxDdType = account.maxDdType ?? account.max_dd_type ?? "percent";
+
+  const maxDdInput = Number(account.maxDdInput ?? account.max_dd_input ?? 0);
+
+  const dailyDdType = account.dailyDdType ?? account.daily_dd_type ?? "percent";
+
+  const dailyDdInput = Number(
+    account.dailyDdInput ?? account.daily_dd_input ?? 0,
+  );
+
+  return {
+    ...account,
+
+    accountSize: size,
+    startingBalance: start,
+
+    targetType,
+    targetInput,
+
+    target:
+      targetType === "percent" ? (start * targetInput) / 100 : targetInput,
+
+    maxDdType,
+    maxDdInput,
+
+    maxDd: maxDdType === "percent" ? (size * maxDdInput) / 100 : maxDdInput,
+
+    dailyDdType,
+    dailyDdInput,
+
+    dailyDd:
+      dailyDdType === "percent" ? (size * dailyDdInput) / 100 : dailyDdInput,
+
+    resetTime: account.resetTime ?? account.reset_time ?? "00:00",
+
+    ddMode: account.ddMode ?? account.dd_mode ?? "static",
+
+    trades: Array.isArray(account.trades) ? account.trades : [],
+  };
+}
 /* =========================================================
    INITIAL CLOUD LOAD
 ========================================================= */
@@ -713,11 +540,9 @@ async function initCloud() {
   }
 
   try {
-    const me =
-      await cloud("/me");
+    const me = await cloud("/me");
 
-    currentUser =
-      me.user;
+    currentUser = me.user;
 
     cloudReady = true;
 
@@ -727,32 +552,16 @@ async function initCloud() {
       Load cloud data.
     */
 
-    const remote =
-      await cloud("/data");
+    const remote = await cloud("/data");
 
-    if (
-      remote &&
-      Array.isArray(
-        remote.accounts
-      ) &&
-      remote.accounts.length
-    ) {
+    if (remote && Array.isArray(remote.accounts) && remote.accounts.length) {
       state = {
-        selectedId:
-          state.selectedId,
-        accounts:
-          remote.accounts
+        selectedId: state.selectedId,
+        accounts: remote.accounts,
       };
 
-      if (
-        !state.accounts.some(
-          x =>
-            x.id ===
-            state.selectedId
-        )
-      ) {
-        state.selectedId =
-          state.accounts[0].id;
+      if (!state.accounts.some((x) => x.id === state.selectedId)) {
+        state.selectedId = state.accounts[0].id;
       }
 
       saveLocal();
@@ -760,28 +569,17 @@ async function initCloud() {
 
     refreshAll();
 
-    toast(
-      "Cloud sync connected."
-    );
-
+    toast("Cloud sync connected.");
   } catch (e) {
-    console.warn(
-      "Cloud initialization failed:",
-      e
-    );
+    console.warn("Cloud initialization failed:", e);
 
-    localStorage.removeItem(
-      "proptrack_access_token"
-    );
+    localStorage.removeItem("proptrack_access_token");
 
     accessToken = null;
     currentUser = null;
     cloudReady = false;
 
-    showAuth(
-      "login",
-      "Your session expired. Please log in again."
-    );
+    showAuth("login", "Your session expired. Please log in again.");
   }
 }
 
@@ -790,11 +588,7 @@ async function initCloud() {
 ========================================================= */
 
 async function syncCloud() {
-  if (
-    !cloudReady ||
-    syncing ||
-    !accessToken
-  ) {
+  if (!cloudReady || syncing || !accessToken) {
     return;
   }
 
@@ -805,21 +599,13 @@ async function syncCloud() {
       method: "POST",
 
       body: JSON.stringify({
-        accounts:
-          state.accounts
-      })
+        accounts: state.accounts,
+      }),
     });
-
   } catch (e) {
-    console.warn(
-      "Cloud sync failed:",
-      e
-    );
+    console.warn("Cloud sync failed:", e);
 
-    toast(
-      "Saved locally; cloud sync failed."
-    );
-
+    toast("Saved locally; cloud sync failed.");
   } finally {
     syncing = false;
   }
@@ -835,8 +621,7 @@ function save() {
 ========================================================= */
 
 function renderDashboard() {
-  const v =
-    $("#dashboardView");
+  const v = $("#dashboardView");
 
   const x = a();
 
@@ -854,11 +639,9 @@ function renderDashboard() {
   const tp = today(x);
   const tr = targetRemaining(x);
 
-  const [mc, mt] =
-    risk(mr, x.maxDd);
+  const [mc, mt] = risk(mr, x.maxDd);
 
-  const [dc, dt] =
-    risk(dr, x.dailyDd);
+  const [dc, dt] = risk(dr, x.dailyDd);
 
   v.innerHTML = `
     <div class="grid metrics">
@@ -873,14 +656,8 @@ function renderDashboard() {
         </div>
 
         <div class="muted">
-          ${
-            b -
-              x.startingBalance >=
-            0
-              ? "+"
-              : ""
-          }${money(
-            b - x.startingBalance
+          ${b - x.startingBalance >= 0 ? "+" : ""}${money(
+            b - x.startingBalance,
           )} overall
         </div>
       </div>
@@ -895,19 +672,8 @@ function renderDashboard() {
         </div>
 
         <div class="muted">
-          Target ${money(
-            x.target
-          )} ·
-          ${pct(
-            fill(
-              Math.max(
-                0,
-                b -
-                  x.startingBalance
-              ),
-              x.target
-            )
-          )} complete
+          Target ${money(x.target)} ·
+          ${pct(fill(Math.max(0, b - x.startingBalance), x.target))} complete
         </div>
       </div>
 
@@ -937,9 +703,7 @@ function renderDashboard() {
         </div>
 
         <div class="muted">
-          ${money(
-            dailyUsed(x)
-          )}
+          ${money(dailyUsed(x))}
           used today
         </div>
       </div>
@@ -974,16 +738,7 @@ function renderDashboard() {
             </span>
 
             <b>
-              ${pct(
-                fill(
-                  Math.max(
-                    0,
-                    b -
-                      x.startingBalance
-                  ),
-                  x.target
-                )
-              )}
+              ${pct(fill(Math.max(0, b - x.startingBalance), x.target))}
               complete
             </b>
           </div>
@@ -992,12 +747,8 @@ function renderDashboard() {
             <div
               class="fill"
               style="width:${fill(
-                Math.max(
-                  0,
-                  b -
-                    x.startingBalance
-                ),
-                x.target
+                Math.max(0, b - x.startingBalance),
+                x.target,
               )}%"
             ></div>
           </div>
@@ -1018,12 +769,7 @@ function renderDashboard() {
             </span>
 
             <b>
-              ${pct(
-                fill(
-                  mu,
-                  x.maxDd
-                )
-              )}
+              ${pct(fill(mu, x.maxDd))}
               used
             </b>
 
@@ -1033,10 +779,7 @@ function renderDashboard() {
 
             <div
               class="fill ${mc}"
-              style="width:${fill(
-                mu,
-                x.maxDd
-              )}%"
+              style="width:${fill(mu, x.maxDd)}%"
             ></div>
 
           </div>
@@ -1044,9 +787,7 @@ function renderDashboard() {
           <div class="muted">
             ${money(mr)}
             remaining ·
-            ${esc(
-              x.ddMode
-            )}
+            ${esc(x.ddMode)}
             mode
           </div>
 
@@ -1061,12 +802,7 @@ function renderDashboard() {
             </span>
 
             <b>
-              ${pct(
-                fill(
-                  dailyUsed(x),
-                  x.dailyDd
-                )
-              )}
+              ${pct(fill(dailyUsed(x), x.dailyDd))}
               used
             </b>
 
@@ -1076,10 +812,7 @@ function renderDashboard() {
 
             <div
               class="fill ${dc}"
-              style="width:${fill(
-                dailyUsed(x),
-                x.dailyDd
-              )}%"
+              style="width:${fill(dailyUsed(x), x.dailyDd)}%"
             ></div>
 
           </div>
@@ -1088,9 +821,7 @@ function renderDashboard() {
             ${money(dr)}
             remaining ·
             resets
-            ${esc(
-              x.resetTime
-            )}
+            ${esc(x.resetTime)}
           </div>
 
         </div>
@@ -1135,9 +866,7 @@ function renderDashboard() {
         </div>
 
         <div class="stat-big">
-          ${money(
-            x.accountSize
-          )}
+          ${money(x.accountSize)}
         </div>
 
         <div style="height:14px"></div>
@@ -1147,9 +876,7 @@ function renderDashboard() {
         </div>
 
         <b>
-          ${money(
-            x.startingBalance
-          )}
+          ${money(x.startingBalance)}
         </b>
 
         <div style="height:14px"></div>
@@ -1159,9 +886,7 @@ function renderDashboard() {
         </div>
 
         <b>
-          ${money(
-            x.maxDd
-          )}
+          ${money(x.maxDd)}
         </b>
 
         <div style="height:14px"></div>
@@ -1171,9 +896,7 @@ function renderDashboard() {
         </div>
 
         <b>
-          ${money(
-            x.dailyDd
-          )}
+          ${money(x.dailyDd)}
         </b>
 
         <div style="height:14px"></div>
@@ -1212,25 +935,18 @@ function renderDashboard() {
 
       ${table(
         [...x.trades]
-          .sort(
-            (p, q) =>
-              new Date(q.date) -
-              new Date(p.date)
-          )
-          .slice(0, 7)
+          .sort((p, q) => new Date(q.date) - new Date(p.date))
+          .slice(0, 7),
       )}
 
     </div>
   `;
 
-  $("#dashTrade").onclick =
-    () => view("trade");
+  $("#dashTrade").onclick = () => view("trade");
 
-  $("#dashAccounts").onclick =
-    () => view("accounts");
+  $("#dashAccounts").onclick = () => view("accounts");
 
-  $("#dashHistory").onclick =
-    () => view("history");
+  $("#dashHistory").onclick = () => view("history");
 }
 
 /* =========================================================
@@ -1270,61 +986,41 @@ function table(ts) {
 
           ${ts
             .map(
-              t => `
+              (t) => `
                 <tr>
 
                   <td>
-                    ${new Date(
-                      t.date
-                    ).toLocaleString()}
+                    ${new Date(t.date).toLocaleString()}
                   </td>
 
                   <td>
                     <b>
-                      ${esc(
-                        t.pair
-                      )}
+                      ${esc(t.pair)}
                     </b>
                   </td>
 
                   <td>
-                    ${esc(
-                      t.side
-                    )}
+                    ${esc(t.side)}
                   </td>
 
                   <td
-                    class="${
-                      t.pnl >= 0
-                        ? "positive"
-                        : "negative"
-                    }"
+                    class="${t.pnl >= 0 ? "positive" : "negative"}"
                   >
                     <b>
-                      ${
-                        t.pnl >= 0
-                          ? "+"
-                          : ""
-                      }${money(
-                        t.pnl
-                      )}
+                      ${t.pnl >= 0 ? "+" : ""}${money(t.pnl)}
                     </b>
                   </td>
 
                   <td>
-                    ${money(
-                      t.balanceAfter
-                    )}
+                    ${money(t.balanceAfter)}
                   </td>
 
                   <td>
-                    ${esc(
-                      t.note || "—"
-                    )}
+                    ${esc(t.note || "—")}
                   </td>
 
                 </tr>
-              `
+              `,
             )
             .join("")}
 
@@ -1341,8 +1037,7 @@ function table(ts) {
 ========================================================= */
 
 function renderAccounts() {
-  const v =
-    $("#accountsView");
+  const v = $("#accountsView");
 
   v.innerHTML = `
     <div class="panel">
@@ -1384,7 +1079,7 @@ function renderAccounts() {
 
       ${state.accounts
         .map(
-          x => `
+          (x) => `
             <div class="panel">
 
               <div class="panel-head">
@@ -1392,15 +1087,11 @@ function renderAccounts() {
                 <div>
 
                   <h3>
-                    ${esc(
-                      x.firm
-                    )}
+                    ${esc(x.firm)}
                   </h3>
 
                   <span class="muted">
-                    ${esc(
-                      x.name
-                    )}
+                    ${esc(x.name)}
                   </span>
 
                 </div>
@@ -1410,16 +1101,12 @@ function renderAccounts() {
               </div>
 
               <div class="stat-big">
-                ${money(
-                  bal(x)
-                )}
+                ${money(bal(x))}
               </div>
 
               <div class="muted">
                 Status:
-                ${accountStatus(
-                  x
-                )[2]}
+                ${accountStatus(x)[2]}
               </div>
 
               <div
@@ -1427,13 +1114,9 @@ function renderAccounts() {
                 style="margin-top:6px"
               >
                 Target
-                ${money(
-                  x.target
-                )}
+                ${money(x.target)}
                 · Remaining
-                ${money(
-                  targetRemaining(x)
-                )}
+                ${money(targetRemaining(x))}
               </div>
 
               <div
@@ -1441,9 +1124,7 @@ function renderAccounts() {
                 style="margin-top:6px"
               >
                 Max DD remaining
-                ${money(
-                  maxRem(x)
-                )}
+                ${money(maxRem(x))}
               </div>
 
               <div
@@ -1451,9 +1132,7 @@ function renderAccounts() {
                 style="margin-top:6px"
               >
                 Daily DD remaining
-                ${money(
-                  dailyRem(x)
-                )}
+                ${money(dailyRem(x))}
               </div>
 
               <div class="modal-actions">
@@ -1482,52 +1161,40 @@ function renderAccounts() {
               </div>
 
             </div>
-          `
+          `,
         )
         .join("")}
 
     </div>
   `;
 
-  $("#addAccount").onclick =
-    () => openAccount();
+  $("#addAccount").onclick = () => openAccount();
 
-  $$(".open-account")
-    .forEach(
-      b =>
-        (b.onclick = () => {
-          state.selectedId =
-            b.dataset.id;
+  $$(".open-account").forEach(
+    (b) =>
+      (b.onclick = () => {
+        state.selectedId = b.dataset.id;
 
-          save();
+        save();
 
-          refreshAll();
+        refreshAll();
 
-          view("dashboard");
-        })
-    );
+        view("dashboard");
+      }),
+  );
 
-  $$(".edit-account")
-    .forEach(
-      b =>
-        (b.onclick = () =>
-          openAccount(
-            b.dataset.id
-          ))
-    );
+  $$(".edit-account").forEach(
+    (b) => (b.onclick = () => openAccount(b.dataset.id)),
+  );
 
-  $$(".del-account")
-    .forEach(
-      b =>
-        (b.onclick = () => {
-          pendingDelete =
-            b.dataset.id;
+  $$(".del-account").forEach(
+    (b) =>
+      (b.onclick = () => {
+        pendingDelete = b.dataset.id;
 
-          $("#deleteModal")
-            .classList
-            .remove("hidden");
-        })
-    );
+        $("#deleteModal").classList.remove("hidden");
+      }),
+  );
 }
 
 /* =========================================================
@@ -1535,14 +1202,12 @@ function renderAccounts() {
 ========================================================= */
 
 function renderTrade() {
-  const v =
-    $("#tradeView");
+  const v = $("#tradeView");
 
   const x = a();
 
   if (!x) {
-    v.innerHTML =
-      '<div class="empty">Add an account first.</div>';
+    v.innerHTML = '<div class="empty">Add an account first.</div>';
 
     return;
   }
@@ -1737,9 +1402,7 @@ function renderTrade() {
         </div>
 
         <div class="stat-big">
-          ${money(
-            bal(x)
-          )}
+          ${money(bal(x))}
         </div>
 
         <div style="height:18px"></div>
@@ -1749,9 +1412,7 @@ function renderTrade() {
         </div>
 
         <div class="stat-big">
-          ${money(
-            targetRemaining(x)
-          )}
+          ${money(targetRemaining(x))}
         </div>
 
         <div style="height:18px"></div>
@@ -1761,9 +1422,7 @@ function renderTrade() {
         </div>
 
         <div class="stat-big">
-          ${money(
-            maxRem(x)
-          )}
+          ${money(maxRem(x))}
         </div>
 
         <div style="height:18px"></div>
@@ -1773,9 +1432,7 @@ function renderTrade() {
         </div>
 
         <div class="stat-big">
-          ${money(
-            dailyRem(x)
-          )}
+          ${money(dailyRem(x))}
         </div>
 
       </div>
@@ -1783,11 +1440,9 @@ function renderTrade() {
     </div>
   `;
 
-  $("#cancelTradeBtn").onclick =
-    () => view("dashboard");
+  $("#cancelTradeBtn").onclick = () => view("dashboard");
 
-  $("#tradeForm").onsubmit =
-    saveTrade;
+  $("#tradeForm").onsubmit = saveTrade;
 }
 
 /* =========================================================
@@ -1799,60 +1454,31 @@ function saveTrade(e) {
 
   const x = a();
 
-  const p =
-    Number(
-      $("#pnl").value
-    );
+  const p = Number($("#pnl").value);
 
   const t = {
     id: uid(),
 
-    date:
-      new Date(
-        $("#tradeDate").value
-      ).toISOString(),
+    date: new Date($("#tradeDate").value).toISOString(),
 
-    pair:
-      $("#pair")
-        .value
-        .trim()
-        .toUpperCase(),
+    pair: $("#pair").value.trim().toUpperCase(),
 
-    side:
-      document.querySelector(
-        'input[name="side"]:checked'
-      ).value,
+    side: document.querySelector('input[name="side"]:checked').value,
 
     pnl: p,
 
-    entry:
-      Number(
-        $("#entry").value
-      ) || null,
+    entry: Number($("#entry").value) || null,
 
-    exit:
-      Number(
-        $("#exit").value
-      ) || null,
+    exit: Number($("#exit").value) || null,
 
-    size:
-      Number(
-        $("#size").value
-      ) || null,
+    size: Number($("#size").value) || null,
 
-    risk:
-      Number(
-        $("#risk").value
-      ) || null,
+    risk: Number($("#risk").value) || null,
 
-    note:
-      $("#tradeNote")
-        .value
-        .trim()
+    note: $("#tradeNote").value.trim(),
   };
 
-  t.balanceAfter =
-    bal(x) + p;
+  t.balanceAfter = bal(x) + p;
 
   x.trades.push(t);
 
@@ -1860,9 +1486,7 @@ function saveTrade(e) {
 
   refreshAll();
 
-  toast(
-    "Trade recorded — account updated."
-  );
+  toast("Trade recorded — account updated.");
 
   view("dashboard");
 }
@@ -1894,21 +1518,14 @@ function renderHistory() {
 
       ${table(
         x
-          ? [
-              ...x.trades
-            ].sort(
-              (p, q) =>
-                new Date(q.date) -
-                new Date(p.date)
-            )
-          : []
+          ? [...x.trades].sort((p, q) => new Date(q.date) - new Date(p.date))
+          : [],
       )}
 
     </div>
   `;
 
-  $("#historyTrade").onclick =
-    () => view("trade");
+  $("#historyTrade").onclick = () => view("trade");
 }
 
 /* =========================================================
@@ -1918,51 +1535,19 @@ function renderHistory() {
 function renderStats() {
   const x = a();
 
-  const ts =
-    x?.trades || [];
+  const ts = x?.trades || [];
 
-  const w =
-    ts.filter(
-      t => t.pnl > 0
-    );
+  const w = ts.filter((t) => t.pnl > 0);
 
-  const l =
-    ts.filter(
-      t => t.pnl < 0
-    );
+  const l = ts.filter((t) => t.pnl < 0);
 
-  const net =
-    ts.reduce(
-      (s, t) =>
-        s +
-        Number(t.pnl || 0),
-      0
-    );
+  const net = ts.reduce((s, t) => s + Number(t.pnl || 0), 0);
 
-  const gw =
-    w.reduce(
-      (s, t) =>
-        s +
-        Number(t.pnl || 0),
-      0
-    );
+  const gw = w.reduce((s, t) => s + Number(t.pnl || 0), 0);
 
-  const gl =
-    Math.abs(
-      l.reduce(
-        (s, t) =>
-          s +
-          Number(t.pnl || 0),
-        0
-      )
-    );
+  const gl = Math.abs(l.reduce((s, t) => s + Number(t.pnl || 0), 0));
 
-  const pf =
-    gl
-      ? gw / gl
-      : gw
-      ? Infinity
-      : 0;
+  const pf = gl ? gw / gl : gw ? Infinity : 0;
 
   $("#statsView").innerHTML = `
     <div class="grid stats-grid">
@@ -1973,17 +1558,9 @@ function renderStats() {
         </div>
 
         <div
-          class="stat-big ${
-            net >= 0
-              ? "positive"
-              : "negative"
-          }"
+          class="stat-big ${net >= 0 ? "positive" : "negative"}"
         >
-          ${
-            net >= 0
-              ? "+"
-              : ""
-          }${money(net)}
+          ${net >= 0 ? "+" : ""}${money(net)}
         </div>
       </div>
 
@@ -1994,15 +1571,7 @@ function renderStats() {
         </div>
 
         <div class="stat-big">
-          ${
-            ts.length
-              ? pct(
-                  (w.length /
-                    ts.length) *
-                    100
-                )
-              : "0.00%"
-          }
+          ${ts.length ? pct((w.length / ts.length) * 100) : "0.00%"}
         </div>
 
       </div>
@@ -2014,11 +1583,7 @@ function renderStats() {
         </div>
 
         <div class="stat-big">
-          ${
-            pf === Infinity
-              ? "∞"
-              : pf.toFixed(2)
-          }
+          ${pf === Infinity ? "∞" : pf.toFixed(2)}
         </div>
 
       </div>
@@ -2030,17 +1595,7 @@ function renderStats() {
         </div>
 
         <div class="stat-big positive">
-          ${
-            ts.length
-              ? money(
-                  Math.max(
-                    ...ts.map(
-                      t => t.pnl
-                    )
-                  )
-                )
-              : money(0)
-          }
+          ${ts.length ? money(Math.max(...ts.map((t) => t.pnl))) : money(0)}
         </div>
 
       </div>
@@ -2052,17 +1607,7 @@ function renderStats() {
         </div>
 
         <div class="stat-big negative">
-          ${
-            ts.length
-              ? money(
-                  Math.min(
-                    ...ts.map(
-                      t => t.pnl
-                    )
-                  )
-                )
-              : money(0)
-          }
+          ${ts.length ? money(Math.min(...ts.map((t) => t.pnl))) : money(0)}
         </div>
 
       </div>
@@ -2100,11 +1645,7 @@ function renderSettings() {
         and synced to Supabase through a Netlify server function.
         Cloud status:
         <b>
-          ${
-            cloudReady
-              ? "Connected"
-              : "Offline / local only"
-          }
+          ${cloudReady ? "Connected" : "Offline / local only"}
         </b>
       </p>
 
@@ -2146,86 +1687,51 @@ function renderSettings() {
     </div>
   `;
 
-  $("#export").onclick =
-    () => {
-      const b =
-        new Blob(
-          [
-            JSON.stringify(
-              state,
-              null,
-              2
-            )
-          ],
-          {
-            type:
-              "application/json"
-          }
-        );
+  $("#export").onclick = () => {
+    const b = new Blob([JSON.stringify(state, null, 2)], {
+      type: "application/json",
+    });
 
-      const a =
-        document.createElement(
-          "a"
-        );
+    const a = document.createElement("a");
 
-      a.href =
-        URL.createObjectURL(b);
+    a.href = URL.createObjectURL(b);
 
-      a.download =
-        "proptrack-backup.json";
+    a.download = "proptrack-backup.json";
 
-      a.click();
-    };
+    a.click();
+  };
 
-  $("#imp").onclick =
-    () =>
-      $("#file").click();
+  $("#imp").onclick = () => $("#file").click();
 
-  $("#file").onchange =
-    async e => {
-      try {
-        state =
-          JSON.parse(
-            await e.target.files[0].text()
-          );
+  $("#file").onchange = async (e) => {
+    try {
+      state = JSON.parse(await e.target.files[0].text());
 
-        save();
+      save();
 
-        refreshAll();
+      refreshAll();
 
-        toast(
-          "Backup imported."
-        );
-      } catch {
-        toast(
-          "Invalid backup."
-        );
-      }
-    };
+      toast("Backup imported.");
+    } catch {
+      toast("Invalid backup.");
+    }
+  };
 
-  $("#reset").onclick =
-    () => {
-      if (
-        confirm(
-          "Delete local data and start fresh? Cloud data is not deleted."
-        )
-      ) {
-        localStorage.removeItem(
-          KEY
-        );
+  $("#reset").onclick = () => {
+    if (
+      confirm("Delete local data and start fresh? Cloud data is not deleted.")
+    ) {
+      localStorage.removeItem(KEY);
 
-        state =
-          defaultState();
+      state = defaultState();
 
-        saveLocal();
+      saveLocal();
 
-        refreshAll();
+      refreshAll();
 
-        toast(
-          "Local data reset."
-        );
-      }
-    };
+      toast("Local data reset.");
+    }
+  };
 }
 
 /* =========================================================
@@ -2233,243 +1739,157 @@ function renderSettings() {
 ========================================================= */
 
 function openAccount(id) {
-  const x = id
-    ? state.accounts.find(
-        a => a.id === id
-      )
-    : null;
+  const x = id ? state.accounts.find((a) => a.id === id) : null;
 
-  $("#accountModalTitle")
-    .textContent =
-    x
-      ? "Edit Prop Account"
-      : "Add Prop Account";
+  $("#accountModalTitle").textContent = x
+    ? "Edit Prop Account"
+    : "Add Prop Account";
 
-  $("#editAccountId").value =
-    x?.id || "";
+  $("#editAccountId").value = x?.id || "";
 
-  $("#firm").value =
-    x?.firm || "";
+  $("#firm").value = x?.firm || "";
 
-  $("#accountName").value =
-    x?.name || "";
+  $("#accountName").value = x?.name || "";
 
-  $("#accountSize").value =
-    x?.accountSize ?? "";
+  $("#accountSize").value = x?.accountSize ?? "";
 
-  $("#startingBalance").value =
-    x?.startingBalance ?? "";
+  $("#startingBalance").value = x?.startingBalance ?? "";
 
-  $("#targetType").value =
-    x?.targetType ||
-    "percent";
+  $("#targetType").value = x?.targetType || "percent";
 
-  $("#targetInput").value =
-    x?.targetInput ?? 8;
+  $("#targetInput").value = x?.targetInput ?? 8;
 
-  $("#maxDdType").value =
-    x?.maxDdType ||
-    "percent";
+  $("#maxDdType").value = x?.maxDdType || "percent";
 
-  $("#maxDdInput").value =
-    x?.maxDdInput ?? 10;
+  $("#maxDdInput").value = x?.maxDdInput ?? 10;
 
-  $("#dailyDdType").value =
-    x?.dailyDdType ||
-    "percent";
+  $("#dailyDdType").value = x?.dailyDdType || "percent";
 
-  $("#dailyDdInput").value =
-    x?.dailyDdInput ?? 5;
+  $("#dailyDdInput").value = x?.dailyDdInput ?? 5;
 
-  $("#resetTime").value =
-    x?.resetTime ||
-    "00:00";
+  $("#resetTime").value = x?.resetTime || "00:00";
 
-  $("#ddMode").value =
-    x?.ddMode ||
-    "static";
+  $("#ddMode").value = x?.ddMode || "static";
 
-  $("#accountNotes").value =
-    x?.notes || "";
+  $("#accountNotes").value = x?.notes || "";
 
-  $("#accountModal")
-    .classList
-    .remove("hidden");
+  $("#accountModal").classList.remove("hidden");
 }
 
 /* =========================================================
    ACCOUNT FORM
 ========================================================= */
 
-$("#accountForm").onsubmit =
-  e => {
-    e.preventDefault();
+$("#accountForm").onsubmit = (e) => {
+  e.preventDefault();
 
-    const id =
-      $("#editAccountId").value;
+  const id = $("#editAccountId").value;
 
-    const size =
-      +$("#accountSize").value;
+  const size = +$("#accountSize").value;
 
-    const start =
-      +$("#startingBalance").value;
+  const start = +$("#startingBalance").value;
 
-    const targetType =
-      $("#targetType").value;
+  const targetType = $("#targetType").value;
 
-    const targetInput =
-      +$("#targetInput").value;
+  const targetInput = +$("#targetInput").value;
 
-    const maxDdType =
-      $("#maxDdType").value;
+  const maxDdType = $("#maxDdType").value;
 
-    const maxDdInput =
-      +$("#maxDdInput").value;
+  const maxDdInput = +$("#maxDdInput").value;
 
-    const dailyDdType =
-      $("#dailyDdType").value;
+  const dailyDdType = $("#dailyDdType").value;
 
-    const dailyDdInput =
-      +$("#dailyDdInput").value;
+  const dailyDdInput = +$("#dailyDdInput").value;
 
-    const d = {
-      firm:
-        $("#firm")
-          .value
-          .trim(),
+  const d = {
+    firm: $("#firm").value.trim(),
 
-      name:
-        $("#accountName")
-          .value
-          .trim(),
+    name: $("#accountName").value.trim(),
 
-      accountSize:
-        size,
+    accountSize: size,
 
-      startingBalance:
-        start,
+    startingBalance: start,
 
-      targetType,
-      targetInput,
+    targetType,
+    targetInput,
 
-      target:
-        targetType ===
-        "percent"
-          ? start *
-            targetInput /
-            100
-          : targetInput,
+    target:
+      targetType === "percent" ? (start * targetInput) / 100 : targetInput,
 
-      maxDdType,
-      maxDdInput,
+    maxDdType,
+    maxDdInput,
 
-      maxDd:
-        maxDdType ===
-        "percent"
-          ? size *
-            maxDdInput /
-            100
-          : maxDdInput,
+    maxDd: maxDdType === "percent" ? (size * maxDdInput) / 100 : maxDdInput,
 
-      dailyDdType,
-      dailyDdInput,
+    dailyDdType,
+    dailyDdInput,
 
-      dailyDd:
-        dailyDdType ===
-        "percent"
-          ? size *
-            dailyDdInput /
-            100
-          : dailyDdInput,
+    dailyDd:
+      dailyDdType === "percent" ? (size * dailyDdInput) / 100 : dailyDdInput,
 
-      resetTime:
-        $("#resetTime").value,
+    resetTime: $("#resetTime").value,
 
-      ddMode:
-        $("#ddMode").value,
+    ddMode: $("#ddMode").value,
 
-      notes:
-        $("#accountNotes").value
+    notes: $("#accountNotes").value,
+  };
+
+  if (id) {
+    Object.assign(
+      state.accounts.find((x) => x.id === id),
+      d,
+    );
+  } else {
+    const x = {
+      id: uid(),
+      ...d,
+      trades: [],
     };
 
-    if (id) {
-      Object.assign(
-        state.accounts.find(
-          x => x.id === id
-        ),
-        d
-      );
-    } else {
-      const x = {
-        id: uid(),
-        ...d,
-        trades: []
-      };
+    state.accounts.push(x);
 
-      state.accounts.push(x);
+    state.selectedId = x.id;
+  }
 
-      state.selectedId =
-        x.id;
-    }
+  save();
 
-    save();
+  close("accountModal");
 
-    close("accountModal");
+  refreshAll();
 
-    refreshAll();
-
-    toast(
-      "Account saved to cloud."
-    );
-  };
+  toast("Account saved to cloud.");
+};
 
 /* =========================================================
    DELETE ACCOUNT
 ========================================================= */
 
-$("#confirmDelete").onclick =
-  () => {
-    state.accounts =
-      state.accounts.filter(
-        x =>
-          x.id !==
-          pendingDelete
-      );
+$("#confirmDelete").onclick = () => {
+  state.accounts = state.accounts.filter((x) => x.id !== pendingDelete);
 
-    state.selectedId =
-      state.accounts[0]?.id ||
-      null;
+  state.selectedId = state.accounts[0]?.id || null;
 
-    pendingDelete = null;
+  pendingDelete = null;
 
-    save();
+  save();
 
-    close("deleteModal");
+  close("deleteModal");
 
-    refreshAll();
+  refreshAll();
 
-    toast(
-      "Account deleted."
-    );
-  };
+  toast("Account deleted.");
+};
 
 /* =========================================================
    MODALS
 ========================================================= */
 
-$$("[data-close-modal]")
-  .forEach(
-    b =>
-      (b.onclick = () =>
-        close(
-          b.dataset.closeModal
-        ))
-  );
+$$("[data-close-modal]").forEach(
+  (b) => (b.onclick = () => close(b.dataset.closeModal)),
+);
 
 function close(id) {
-  $("#" + id)
-    .classList
-    .add("hidden");
+  $("#" + id).classList.add("hidden");
 }
 
 /* =========================================================
@@ -2477,77 +1897,45 @@ function close(id) {
 ========================================================= */
 
 function view(n) {
-  $$(".view").forEach(
-    x =>
-      x.classList.remove(
-        "active-view"
-      )
+  $$(".view").forEach((x) => x.classList.remove("active-view"));
+
+  $("#" + n + "View").classList.add("active-view");
+
+  $$(".nav-item").forEach((x) =>
+    x.classList.toggle("active", x.dataset.view === n),
   );
 
-  $("#" + n + "View")
-    .classList.add(
-      "active-view"
-    );
-
-  $$(".nav-item").forEach(
-    x =>
-      x.classList.toggle(
-        "active",
-        x.dataset.view === n
-      )
-  );
-
-  $("#pageTitle").textContent =
-    {
-      dashboard:
-        "Dashboard",
-      accounts:
-        "Accounts",
-      trade:
-        "New Trade",
-      history:
-        "Trade History",
-      stats:
-        "Statistics",
-      settings:
-        "Settings"
-    }[n];
+  $("#pageTitle").textContent = {
+    dashboard: "Dashboard",
+    accounts: "Accounts",
+    trade: "New Trade",
+    history: "Trade History",
+    stats: "Statistics",
+    settings: "Settings",
+  }[n];
 
   render(n);
 }
 
 function render(n) {
-  if (n === "dashboard")
-    renderDashboard();
+  if (n === "dashboard") renderDashboard();
 
-  if (n === "accounts")
-    renderAccounts();
+  if (n === "accounts") renderAccounts();
 
-  if (n === "trade")
-    renderTrade();
+  if (n === "trade") renderTrade();
 
-  if (n === "history")
-    renderHistory();
+  if (n === "history") renderHistory();
 
-  if (n === "stats")
-    renderStats();
+  if (n === "stats") renderStats();
 
-  if (n === "settings")
-    renderSettings();
+  if (n === "settings") renderSettings();
 }
 
 function refreshAll() {
   refreshSwitch();
 
   const n =
-    document
-      .querySelector(
-        ".active-view"
-      )
-      ?.id.replace(
-        "View",
-        ""
-      ) ||
+    document.querySelector(".active-view")?.id.replace("View", "") ||
     "dashboard";
 
   render(n);
@@ -2558,64 +1946,39 @@ function refreshAll() {
 ========================================================= */
 
 function toast(s) {
-  const t =
-    $("#toast");
+  const t = $("#toast");
 
   if (!t) return;
 
   t.textContent = s;
 
-  t.classList.add(
-    "show"
-  );
+  t.classList.add("show");
 
-  setTimeout(
-    () =>
-      t.classList.remove(
-        "show"
-      ),
-    2200
-  );
+  setTimeout(() => t.classList.remove("show"), 2200);
 }
 
 /* =========================================================
    EVENT LISTENERS
 ========================================================= */
 
-$$(".nav-item").forEach(
-  b =>
-    (b.onclick = () =>
-      view(
-        b.dataset.view
-      ))
-);
+$$(".nav-item").forEach((b) => (b.onclick = () => view(b.dataset.view)));
 
-$("#accountSwitcher").onchange =
-  e => {
-    state.selectedId =
-      e.target.value;
+$("#accountSwitcher").onchange = (e) => {
+  state.selectedId = e.target.value;
 
-    save();
+  save();
 
-    refreshAll();
-  };
+  refreshAll();
+};
 
-$("#quickTradeBtn").onclick =
-  () => view("trade");
+$("#quickTradeBtn").onclick = () => view("trade");
 
-$("#authForm").onsubmit =
-  handleAuth;
+$("#authForm").onsubmit = handleAuth;
 
-$("#authSwitch").onclick =
-  () =>
-    showAuth(
-      authMode === "login"
-        ? "signup"
-        : "login"
-    );
+$("#authSwitch").onclick = () =>
+  showAuth(authMode === "login" ? "signup" : "login");
 
-$("#logoutTop").onclick =
-  logout;
+$("#logoutTop").onclick = logout;
 
 /* =========================================================
    START APPLICATION
