@@ -305,20 +305,28 @@ async function cloud(path, options = {}) {
    AUTH UI
 ========================================================= */
 
+let otpEmail = "";
+let otpPassword = "";
+
 function showAuth(mode = "login", message = "") {
   authMode = mode;
 
   $("#authScreen").classList.remove("hidden");
 
   $("#authTitle").textContent =
-    mode === "login" ? "Welcome back" : "Create your account";
+    mode === "login"
+      ? "Welcome back"
+      : "Create your account";
 
   $("#authSubtitle").textContent =
     mode === "login"
       ? "Sign in to access your accounts and trades from anywhere."
       : "Create one account and keep your PropTrack data in the cloud.";
 
-  $("#authSubmit").textContent = mode === "login" ? "Login" : "Create Account";
+  $("#authSubmit").textContent =
+    mode === "login"
+      ? "Login"
+      : "Create Account";
 
   $("#authSwitch").textContent =
     mode === "login"
@@ -329,16 +337,178 @@ function showAuth(mode = "login", message = "") {
 
   $("#authPassword").value = "";
 
+  /*
+    OTP section should only appear
+    after signup OTP has been requested.
+  */
+
+  $("#otpSection").classList.add("hidden");
+
+  $("#authOtp").value = "";
+
+  $("#verifyOtpBtn").disabled = false;
+
+  $("#resendOtpBtn").disabled = false;
+
   setTimeout(() => $("#authEmail").focus(), 50);
 }
+
 
 function hideAuth() {
   $("#authScreen").classList.add("hidden");
 
   $("#userChip").classList.remove("hidden");
 
-  $("#userChipEmail").textContent = currentUser?.email || "";
+  $("#userChipEmail").textContent =
+    currentUser?.email || "";
 }
+
+
+/* =========================================================
+   COMPLETE LOGIN AFTER AUTHENTICATION
+========================================================= */
+
+async function finishAuthentication(
+  data,
+  oldLocal,
+  successMessage
+) {
+  /*
+    api.js returns:
+    { token, user }
+  */
+
+  accessToken = data.token;
+
+  currentUser = data.user;
+
+  if (!accessToken) {
+    throw new Error(
+      "Authentication succeeded but no session token was returned."
+    );
+  }
+
+  localStorage.setItem(
+    "proptrack_access_token",
+    accessToken
+  );
+
+  localStorage.setItem(
+    "proptrack_user_email",
+    currentUser.email
+  );
+
+  cloudReady = true;
+
+  /*
+    Load cloud data.
+  */
+
+  let remote = null;
+
+  try {
+    remote = await cloud("/data");
+  } catch (err) {
+    console.error(
+      "Cloud data load failed:",
+      err
+    );
+  }
+
+  /*
+    If cloud already contains accounts,
+    use cloud data.
+  */
+
+  if (
+    remote &&
+    Array.isArray(remote.accounts) &&
+    remote.accounts.length
+  ) {
+    state = {
+      selectedId: state.selectedId,
+
+      accounts:
+        remote.accounts.map(
+          normalizeCloudAccount
+        ),
+    };
+
+    if (
+      !state.accounts.some(
+        x => x.id === state.selectedId
+      )
+    ) {
+      state.selectedId =
+        state.accounts[0].id;
+    }
+
+    saveLocal();
+
+  } else if (oldLocal?.accounts?.length) {
+
+    /*
+      If cloud is empty but local data
+      already exists, upload local data.
+    */
+
+    state = oldLocal;
+
+    saveLocal();
+
+    await syncCloud();
+
+    /*
+      Fetch again so we know the
+      cloud data is available.
+    */
+
+    try {
+      const synced =
+        await cloud("/data");
+
+      if (
+        synced?.accounts?.length
+      ) {
+        state = {
+          selectedId:
+            state.selectedId,
+
+          accounts:
+            synced.accounts.map(
+              normalizeCloudAccount
+            ),
+        };
+
+        if (
+          !state.accounts.some(
+            x =>
+              x.id ===
+              state.selectedId
+          )
+        ) {
+          state.selectedId =
+            state.accounts[0].id;
+        }
+
+        saveLocal();
+      }
+
+    } catch (err) {
+      console.warn(
+        "Second cloud fetch failed:",
+        err
+      );
+    }
+  }
+
+  hideAuth();
+
+  refreshAll();
+
+  toast(successMessage);
+}
+
 
 /* =========================================================
    LOGIN / SIGNUP
@@ -347,145 +517,371 @@ function hideAuth() {
 async function handleAuth(e) {
   e.preventDefault();
 
-  const email = $("#authEmail").value.trim().toLowerCase();
+  const email =
+    $("#authEmail")
+      .value
+      .trim()
+      .toLowerCase();
 
-  const password = $("#authPassword").value;
+  const password =
+    $("#authPassword").value;
 
-  if (!email || !password) return;
+  if (!email || !password) {
+    return;
+  }
 
   $("#authSubmit").disabled = true;
 
   $("#authError").textContent = "";
 
   try {
+
     /*
-      Keep the old local data before
+      Keep old local data before
       authentication changes anything.
     */
 
-    const oldLocal = JSON.parse(localStorage.getItem(KEY) || "null");
+    const oldLocal =
+      JSON.parse(
+        localStorage.getItem(KEY) ||
+        "null"
+      );
 
-    const endpoint = authMode === "login" ? "login" : "signup";
 
-    const response = await fetch("/.netlify/functions/api/" + endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    });
+    /* =====================================================
+       LOGIN
+    ===================================================== */
 
-    const data = await response.json().catch(() => ({}));
+    if (authMode === "login") {
+
+      const response =
+        await fetch(
+          "/.netlify/functions/api/login",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              email,
+              password,
+            }),
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+          "Unable to login."
+        );
+      }
+
+      await finishAuthentication(
+        data,
+        oldLocal,
+        "Logged in — cloud data loaded."
+      );
+
+      return;
+    }
+
+
+    /* =====================================================
+       SIGNUP — REQUEST OTP
+    ===================================================== */
+
+    otpEmail = email;
+
+    otpPassword = password;
+
+    const response =
+      await fetch(
+        "/.netlify/functions/api/signup",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }
+      );
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || "Authentication failed");
+      throw new Error(
+        data.error ||
+        "Unable to create account."
+      );
     }
 
     /*
-      IMPORTANT:
-      api.js returns { token }
-      NOT { access_token }
+      Backend successfully sent OTP.
     */
 
-    accessToken = data.token;
+    if (data.requiresOtp) {
 
-    currentUser = data.user;
+      $("#otpSection")
+        .classList
+        .remove("hidden");
 
-    if (!accessToken) {
-      throw new Error("Login succeeded but no session token was returned.");
+      $("#authForm")
+        .classList
+        .add("hidden");
+
+      $("#authSwitch")
+        .classList
+        .add("hidden");
+
+      $("#forgotPasswordBtn")
+        .classList
+        .add("hidden");
+
+      $("#authTitle")
+        .textContent =
+        "Verify your email";
+
+      $("#authSubtitle")
+        .textContent =
+        `We sent a 6-digit verification code to ${email}.`;
+
+      $("#authError")
+        .textContent = "";
+
+      $("#authOtp").value = "";
+
+      $("#authOtp").focus();
+
+      return;
     }
 
-    localStorage.setItem("proptrack_access_token", accessToken);
-
-    localStorage.setItem("proptrack_user_email", currentUser.email);
-
-    cloudReady = true;
-
     /*
-      First try to load cloud data.
+      Safety fallback.
     */
 
-    let remote = null;
-
-    try {
-      remote = await cloud("/data");
-    } catch (err) {
-      console.error("Cloud data load failed:", err);
-    }
-
-    /*
-      If cloud already contains accounts,
-      use cloud data.
-    */
-
-    if (remote && Array.isArray(remote.accounts) && remote.accounts.length) {
-      state = {
-        selectedId: state.selectedId,
-
-        accounts: remote.accounts.map(normalizeCloudAccount),
-      };
-
-      if (!state.accounts.some((x) => x.id === state.selectedId)) {
-        state.selectedId = state.accounts[0].id;
-      }
-
-      saveLocal();
-    } else if (oldLocal?.accounts?.length) {
-
-    /*
-      If cloud is empty but local data
-      already exists, upload local data.
-    */
-      state = oldLocal;
-
-      saveLocal();
-
-      await syncCloud();
-
-      /*
-        Fetch again so we know the
-        cloud data is actually available.
-      */
-
-      try {
-        const synced = await cloud("/data");
-
-        if (synced?.accounts?.length) {
-          state = {
-            selectedId: state.selectedId,
-
-            accounts: synced.accounts.map(normalizeCloudAccount),
-          };
-
-          if (!state.accounts.some((x) => x.id === state.selectedId)) {
-            state.selectedId = state.accounts[0].id;
-          }
-
-          saveLocal();
-        }
-      } catch (err) {
-        console.warn("Second cloud fetch failed:", err);
-      }
-    }
-
-    hideAuth();
-
-    refreshAll();
-
-    toast(
-      authMode === "login"
-        ? "Logged in — cloud data loaded."
-        : "Account created — cloud sync connected.",
+    throw new Error(
+      "OTP verification is required."
     );
-  } catch (err) {
-    console.error("AUTH ERROR:", err);
 
-    $("#authError").textContent = err.message || "Unable to sign in.";
+  } catch (err) {
+
+    console.error(
+      "AUTH ERROR:",
+      err
+    );
+
+    $("#authError")
+      .textContent =
+      err.message ||
+      "Unable to authenticate.";
+
   } finally {
-    $("#authSubmit").disabled = false;
+
+    $("#authSubmit")
+      .disabled = false;
+  }
+}
+
+
+/* =========================================================
+   VERIFY SIGNUP OTP
+========================================================= */
+
+async function verifySignupOtp() {
+
+  const otp =
+    $("#authOtp")
+      .value
+      .trim();
+
+  $("#authError")
+    .textContent = "";
+
+  if (!/^\d{6}$/.test(otp)) {
+
+    $("#authError")
+      .textContent =
+      "Please enter the 6-digit verification code.";
+
+    return;
+  }
+
+  $("#verifyOtpBtn")
+    .disabled = true;
+
+  try {
+
+    const oldLocal =
+      JSON.parse(
+        localStorage.getItem(KEY) ||
+        "null"
+      );
+
+    const response =
+      await fetch(
+        "/.netlify/functions/api/signup-verify",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            email: otpEmail,
+            password: otpPassword,
+            otp,
+          }),
+        }
+      );
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error ||
+        "Verification failed."
+      );
+    }
+
+    /*
+      Signup is now complete.
+      Backend returns token + user.
+    */
+
+    await finishAuthentication(
+      data,
+      oldLocal,
+      "Account created — cloud sync connected."
+    );
+
+    /*
+      Clear temporary credentials.
+    */
+
+    otpEmail = "";
+    otpPassword = "";
+
+  } catch (err) {
+
+    console.error(
+      "OTP ERROR:",
+      err
+    );
+
+    $("#authError")
+      .textContent =
+      err.message ||
+      "Unable to verify email.";
+
+  } finally {
+
+    $("#verifyOtpBtn")
+      .disabled = false;
+  }
+}
+
+
+/* =========================================================
+   RESEND SIGNUP OTP
+========================================================= */
+
+async function resendSignupOtp() {
+
+  if (!otpEmail || !otpPassword) {
+    return;
+  }
+
+  $("#resendOtpBtn")
+    .disabled = true;
+
+  $("#authError")
+    .textContent =
+    "Sending a new verification code...";
+
+  try {
+
+    const response =
+      await fetch(
+        "/.netlify/functions/api/signup",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            email: otpEmail,
+            password: otpPassword,
+          }),
+        }
+      );
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error ||
+        "Unable to resend code."
+      );
+    }
+
+    $("#authError")
+      .textContent =
+      "A new verification code was sent.";
+
+    $("#authOtp").value = "";
+
+    $("#authOtp").focus();
+
+  } catch (err) {
+
+    $("#authError")
+      .textContent =
+      err.message ||
+      "Unable to resend code.";
+
+  } finally {
+
+    /*
+      Prevent accidental rapid
+      repeated requests.
+    */
+
+    setTimeout(() => {
+
+      $("#resendOtpBtn")
+        .disabled = false;
+
+    }, 30000);
   }
 }
 
@@ -1991,12 +2387,13 @@ function toast(s) {
 
   setTimeout(() => t.classList.remove("show"), 2200);
 }
-
 /* =========================================================
    EVENT LISTENERS
 ========================================================= */
 
-$$(".nav-item").forEach((b) => (b.onclick = () => view(b.dataset.view)));
+$$(".nav-item").forEach(
+  (b) => (b.onclick = () => view(b.dataset.view))
+);
 
 $("#accountSwitcher").onchange = (e) => {
   state.selectedId = e.target.value;
@@ -2006,12 +2403,27 @@ $("#accountSwitcher").onchange = (e) => {
   refreshAll();
 };
 
-$("#quickTradeBtn").onclick = () => view("trade");
+$("#quickTradeBtn").onclick = () =>
+  view("trade");
 
 $("#authForm").onsubmit = handleAuth;
 
 $("#authSwitch").onclick = () =>
-  showAuth(authMode === "login" ? "signup" : "login");
+  showAuth(
+    authMode === "login"
+      ? "signup"
+      : "login"
+  );
+
+/* =========================================================
+   OTP LISTENERS
+========================================================= */
+
+$("#verifyOtpBtn").onclick =
+  verifySignupOtp;
+
+$("#resendOtpBtn").onclick =
+  resendSignupOtp;
 
 $("#logoutTop").onclick = logout;
 
