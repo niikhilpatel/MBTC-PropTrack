@@ -1,97 +1,257 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PropTrack — Prop Trading Dashboard</title>
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-/>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="app">
-<aside class="sidebar">
-  <div class="brand"><div class="brand-mark">P</div><div><h1>PropTrack</h1><span>Trading Dashboard</span></div></div>
-  <nav>
-    <button class="nav-item active" data-view="dashboard">▦ <span>Dashboard</span></button>
-    <button class="nav-item" data-view="accounts">◫ <span>Accounts</span></button>
-    <button class="nav-item" data-view="trade">＋ <span>New Trade</span></button>
-    <button class="nav-item" data-view="history">☷ <span>Trade History</span></button>
-    <button class="nav-item" data-view="stats">◒ <span>Statistics</span></button>
-  </nav>
-  <div class="sidebar-bottom">
-    <button class="nav-item" data-view="settings">⚙ <span>Settings</span></button>
-    <div class="storage-note">Cloud storage<br><b>Supabase via Netlify</b></div>
-<div class="storage-note">
-  Created by<br>
-  <b>Nikhil Patel</b>
-  <a
-    href="https://www.instagram.com/moretonikhil/"
-    target="_blank"
-    rel="noopener noreferrer"
-    aria-label="Instagram"
-    class="creator-instagram"
-  >
-    <i class="fab fa-instagram"></i>
-  </a>
-</div>
-  </div>
-</aside>
-<main class="main">
-<header class="topbar">
-  <div><p class="eyebrow">PROP TRADING CONTROL CENTER</p><h2 id="pageTitle">Dashboard</h2></div>
-  <div class="top-actions"><select id="accountSwitcher"></select><button class="primary-btn" id="quickTradeBtn">＋ Record Trade</button><div class="user-chip hidden" id="userChip"><span id="userChipEmail"></span><button id="logoutTop" type="button">Logout</button></div></div>
-</header>
-<section id="dashboardView" class="view active-view"></section>
-<section id="accountsView" class="view"></section>
-<section id="tradeView" class="view"></section>
-<section id="historyView" class="view"></section>
-<section id="statsView" class="view"></section>
-<section id="settingsView" class="view"></section>
-</main>
-</div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PropTrack — Prop Trading Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-<div class="modal hidden" id="accountModal"><div class="modal-card">
-<div class="modal-head"><div><p class="eyebrow">ACCOUNT SETUP</p><h3 id="accountModalTitle">Add Prop Account</h3></div><button class="icon-btn" data-close-modal="accountModal">×</button></div>
-<form id="accountForm"><input type="hidden" id="editAccountId"><div class="form-grid">
-<label>Prop Firm<input id="firm" required placeholder="e.g. FTMO"></label>
-<label>Account Name / ID<input id="accountName" required placeholder="e.g. $100K Challenge"></label>
-<label>Account Size ($)<input id="accountSize" type="number" min="0" step=".01" required></label>
-<label>Starting Balance ($)<input id="startingBalance" type="number" min="0" step=".01" required></label>
-<label>Profit Target<input id="targetInput" type="number" min="0" step=".01" required></label>
-<label>Target Type<select id="targetType"><option value="percent">Percentage (%)</option><option value="usd">USD ($)</option></select></label>
-<label>Maximum Drawdown<input id="maxDdInput" type="number" min="0" step=".01" required></label>
-<label>Max DD Type<select id="maxDdType"><option value="percent">Percentage (%)</option><option value="usd">USD ($)</option></select></label>
-<label>Daily Drawdown<input id="dailyDdInput" type="number" min="0" step=".01" required></label>
-<label>Daily DD Type<select id="dailyDdType"><option value="percent">Percentage (%)</option><option value="usd">USD ($)</option></select></label>
-<label>Daily Reset Time<input id="resetTime" type="time" value="00:00"></label>
-<label>Drawdown Mode<select id="ddMode"><option value="static">Static</option><option value="trailing">Trailing</option></select></label>
-</div>
-<label class="full">Notes<textarea id="accountNotes" rows="3"></textarea></label>
-<div class="modal-actions"><button type="button" class="ghost-btn" data-close-modal="accountModal">Cancel</button><button class="primary-btn" type="submit">Save Account</button></div>
-</form></div></div>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">P</div>
+          <div>
+            <h1>PropTrack</h1>
+            <span>Trading Dashboard</span>
+          </div>
+        </div>
+        <nav>
+          <button class="nav-item active" data-view="dashboard">
+            ▦ <span>Dashboard</span>
+          </button>
+          <button class="nav-item" data-view="accounts">
+            ◫ <span>Accounts</span>
+          </button>
+          <button class="nav-item" data-view="trade">
+            ＋ <span>New Trade</span>
+          </button>
+          <button class="nav-item" data-view="history">
+            ☷ <span>Trade History</span>
+          </button>
+          <button class="nav-item" data-view="stats">
+            ◒ <span>Statistics</span>
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <button class="nav-item" data-view="settings">
+            ⚙ <span>Settings</span>
+          </button>
+          <div class="storage-note">
+            Cloud storage<br /><b>Supabase via Netlify</b>
+          </div>
+          <div class="storage-note">
+            Created by<br />
+            <b>Nikhil Patel</b>
+            <a
+              href="https://www.instagram.com/moretonikhil/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              class="creator-instagram"
+            >
+              <i class="fab fa-instagram"></i>
+            </a>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">PROP TRADING CONTROL CENTER</p>
+            <h2 id="pageTitle">Dashboard</h2>
+          </div>
+          <div class="top-actions">
+            <select id="accountSwitcher"></select
+            ><button class="primary-btn" id="quickTradeBtn">
+              ＋ Record Trade
+            </button>
+            <div class="user-chip hidden" id="userChip">
+              <span id="userChipEmail"></span
+              ><button id="logoutTop" type="button">Logout</button>
+            </div>
+          </div>
+        </header>
+        <section id="dashboardView" class="view active-view"></section>
+        <section id="accountsView" class="view"></section>
+        <section id="tradeView" class="view"></section>
+        <section id="historyView" class="view"></section>
+        <section id="statsView" class="view"></section>
+        <section id="settingsView" class="view"></section>
+      </main>
+    </div>
 
-<div class="modal hidden" id="deleteModal"><div class="modal-card small"><h3>Delete account?</h3><p class="muted">This removes the account and its trades from this browser.</p><div class="modal-actions"><button class="ghost-btn" data-close-modal="deleteModal">Cancel</button><button class="danger-btn" id="confirmDelete">Delete</button></div></div></div>
-<div class="toast" id="toast"></div>
-<div class="auth-screen hidden" id="authScreen">
-  <div class="auth-card">
-    <div class="brand auth-brand"><div class="brand-mark">P</div><div><h1>PropTrack</h1><span>Cloud Trading Dashboard</span></div></div>
-    <p class="eyebrow" id="authEyebrow">SECURE CLOUD LOGIN</p>
-    <h2 id="authTitle">Welcome back</h2>
-    <p class="muted" id="authSubtitle">Sign in to access your accounts and trades from anywhere.</p>
-    <form id="authForm">
-      <label>Email<input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></label>
-      <label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="••••••••"></label>
-      <button class="primary-btn auth-submit" id="authSubmit" type="submit">Login</button>
-    </form>
-    <button class="auth-switch" id="authSwitch" type="button">Create a new account</button>
-    <div class="auth-error" id="authError"></div>
-  </div>
-</div>
-<div class="user-menu hidden" id="userMenu"><span id="userEmail"></span><button class="ghost-btn" id="logoutBtn">Logout</button></div>
+    <div class="modal hidden" id="accountModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">ACCOUNT SETUP</p>
+            <h3 id="accountModalTitle">Add Prop Account</h3>
+          </div>
+          <button class="icon-btn" data-close-modal="accountModal">×</button>
+        </div>
+        <form id="accountForm">
+          <input type="hidden" id="editAccountId" />
+          <div class="form-grid">
+            <label
+              >Prop Firm<input id="firm" required placeholder="e.g. FTMO"
+            /></label>
+            <label
+              >Account Name / ID<input
+                id="accountName"
+                required
+                placeholder="e.g. $100K Challenge"
+            /></label>
+            <label
+              >Account Size ($)<input
+                id="accountSize"
+                type="number"
+                min="0"
+                step=".01"
+                required
+            /></label>
+            <label
+              >Starting Balance ($)<input
+                id="startingBalance"
+                type="number"
+                min="0"
+                step=".01"
+                required
+            /></label>
+            <label
+              >Profit Target<input
+                id="targetInput"
+                type="number"
+                min="0"
+                step=".01"
+                required
+            /></label>
+            <label
+              >Target Type<select id="targetType">
+                <option value="percent">Percentage (%)</option>
+                <option value="usd">USD ($)</option>
+              </select></label
+            >
+            <label
+              >Maximum Drawdown<input
+                id="maxDdInput"
+                type="number"
+                min="0"
+                step=".01"
+                required
+            /></label>
+            <label
+              >Max DD Type<select id="maxDdType">
+                <option value="percent">Percentage (%)</option>
+                <option value="usd">USD ($)</option>
+              </select></label
+            >
+            <label
+              >Daily Drawdown<input
+                id="dailyDdInput"
+                type="number"
+                min="0"
+                step=".01"
+                required
+            /></label>
+            <label
+              >Daily DD Type<select id="dailyDdType">
+                <option value="percent">Percentage (%)</option>
+                <option value="usd">USD ($)</option>
+              </select></label
+            >
+            <label
+              >Daily Reset Time<input id="resetTime" type="time" value="00:00"
+            /></label>
+            <label
+              >Drawdown Mode<select id="ddMode">
+                <option value="static">Static</option>
+                <option value="trailing">Trailing</option>
+              </select></label
+            >
+          </div>
+          <label class="full"
+            >Notes<textarea id="accountNotes" rows="3"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="ghost-btn"
+              data-close-modal="accountModal"
+            >
+              Cancel</button
+            ><button class="primary-btn" type="submit">Save Account</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-<script src="app.js"></script>
-</body>
+    <div class="modal hidden" id="deleteModal">
+      <div class="modal-card small">
+        <h3>Delete account?</h3>
+        <p class="muted">
+          This removes the account and its trades from this browser.
+        </p>
+        <div class="modal-actions">
+          <button class="ghost-btn" data-close-modal="deleteModal">
+            Cancel</button
+          ><button class="danger-btn" id="confirmDelete">Delete</button>
+        </div>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <div class="auth-screen hidden" id="authScreen">
+      <div class="auth-card">
+        <div class="brand auth-brand">
+          <div class="brand-mark">P</div>
+          <div>
+            <h1>PropTrack</h1>
+            <span>Cloud Trading Dashboard</span>
+          </div>
+        </div>
+        <p class="eyebrow" id="authEyebrow">SECURE CLOUD LOGIN</p>
+        <h2 id="authTitle">Welcome back</h2>
+        <p class="muted" id="authSubtitle">
+          Sign in to access your accounts and trades from anywhere.
+        </p>
+        <form id="authForm">
+          <label
+            >Email<input
+              id="authEmail"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="you@example.com"
+          /></label>
+          <label
+            >Password<input
+              id="authPassword"
+              type="password"
+              autocomplete="current-password"
+              minlength="6"
+              required
+              placeholder="••••••••"
+          /></label>
+          <button class="primary-btn auth-submit" id="authSubmit" type="submit">
+            Login
+          </button>
+        </form>
+        <button class="auth-switch" id="authSwitch" type="button">
+          Create a new account
+        </button>
+        <div class="auth-error" id="authError"></div>
+      </div>
+    </div>
+    <div class="user-menu hidden" id="userMenu">
+      <span id="userEmail"></span
+      ><button class="ghost-btn" id="logoutBtn">Logout</button>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
 </html>
