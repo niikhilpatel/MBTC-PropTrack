@@ -555,7 +555,7 @@ function normalizeCloudAccount(account) {
     dailyDd:
       dailyDdType === "percent" ? (size * dailyDdInput) / 100 : dailyDdInput,
 
-    resetTime: account.resetTime ?? account.reset_time ?? "00:00",
+    resetTime: account.resetTime ?? account.reset_time ?? "07:00",
 
     ddMode: account.ddMode ?? account.dd_mode ?? "static",
 
@@ -1801,7 +1801,7 @@ function openAccount(id) {
 
   $("#dailyDdInput").value = x?.dailyDdInput ?? 5;
 
-  $("#resetTime").value = x?.resetTime || "00:00";
+  $("#resetTime").value = x?.resetTime || "07:00";
 
   $("#ddMode").value = x?.ddMode || "static";
 
